@@ -13,5 +13,13 @@ venv/
 .env
 qdrant_data/
 
+# Local planning/design notes — kept out of the public repo.
+docs/
 *build_spec.md
 *prompts.md
+*-dev-spec.md
+
+# Local eval outputs (results published separately)
+eval/**/*RESULTS*.md
+eval/episodic/threshold_defaults.json
+*.log
