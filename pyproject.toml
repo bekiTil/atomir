@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 # Distribution (PyPI) name matches the import package `atomir`.
 name = "atomir"
-version = "0.7.0"
+version = "0.8.0"
 description = "Atomic memory infrastructure for agents — atomic facts on write, atomic sub-question decomposition on read."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -33,6 +33,7 @@ groq = []
 jina = []
 openai = []
 anthropic = []
+gemini = []
 voyage = []
 ollama = []
 qdrant = ["qdrant-client>=1.7"]
@@ -40,11 +41,20 @@ api = ["fastapi>=0.100", "uvicorn[standard]>=0.23"]
 langchain = ["langchain-core>=0.3"]
 langgraph = ["langgraph>=0.2"]
 mcp = ["mcp>=1.0"]
+test = ["pytest>=7"]
 all = ["qdrant-client>=1.7", "fastapi>=0.100", "uvicorn[standard]>=0.23", "langchain-core>=0.3", "langgraph>=0.2", "mcp>=1.0"]
 
 # Discover atomir and ALL its subpackages (stores, llm, embeddings, providers).
 [project.scripts]
 atomir-mcp = "atomir.integrations.mcp_server:main"
+atomir = "atomir.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["atomir*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = [
+    "qdrant: needs qdrant-client (and a reachable/in-memory Qdrant); skipped otherwise",
+]
