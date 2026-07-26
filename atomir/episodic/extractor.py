@@ -1,0 +1,90 @@
+"""Single-extraction: one LLM call turns a message into structured events
+. This REPLACES the fact-extraction call when episodic is on —
+facts are then projected from these events, never extracted independently
+("single extraction, dual projection", spec).
+"""
+
+from __future__ import annotations
+
+from atomir.episodic.models import HAPPENED, START
+from atomir.ontology import normalize_object_type
+from atomir.providers.llm_base import LLM
+
+_EXTRACT_SYSTEM = (
+    "You extract EVENTS (things that happened or were stated) from a message for a "
+    "personal-memory system. The message was written by the user, so the default "
+    "subject is 'the user'. Return ONE item per atomic event.\n"
+    "For each event give:\n"
+    "- raw_text: the source clause, verbatim\n"
+    "- subject: who the event is about ('the user' unless clearly someone else)\n"
+    "- subject_type: person | org | ...\n"
+    "- verb_phrase: the predicate WITHOUT the object, e.g. 'joined', 'left', "
+    "'reports to', 'lives in'\n"
+    "- value: the object/value, e.g. 'Acme Corp', 'Dana', 'Paris'\n"
+    "- object_type: choose ONE of: organization | person | place | activity | "
+    "object | language | media | animal | condition | other\n"
+    "- polarity: 'start' (relationship/state begins), 'end' (it ceases), or "
+    "'update' (same relationship, new value)\n"
+    "- modality: 'happened' (real, past/present), 'planned' (future/intended), or "
+    "'hypothetical' (uncertain/conditional)\n"
+    "- occurred_at: ISO-8601 date the event happened in the world, resolving "
+    "relative times ('last November') against the message date; null if unknown\n"
+    "- corrects_hint: brief text of an earlier statement this corrects, or null\n"
+    "Split compound statements. Skip greetings and chit-chat.\n"
+    'Return ONLY JSON: {"events": [ { ...fields... } ]}'
+)
+
+
+def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "") -> list[dict]:
+    """Return a list of raw event dicts. `recorded_at` (message time) lets the
+    model resolve relative times into `occurred_at`; `registry` (the user's
+    existing branches) is fed back so it reuses established predicates/verbs
+    rather than inventing variants."""
+    text = (text or "").strip()
+    if not text:
+        return []
+    system = _EXTRACT_SYSTEM
+    if registry:
+        system += ("\n\nThe user already has these memory predicates — REUSE an "
+                   "existing verb_phrase/object_type when the event fits one, "
+                   "rather than phrasing it differently:\n" + registry)
+    user = f"MESSAGE DATE: {recorded_at}\nMESSAGE:\n{text}"
+    result = llm.chat_json(system, user)
+    events = result.get("events", []) if isinstance(result, dict) else []
+    out: list[dict] = []
+    for e in events:
+        if not isinstance(e, dict):
+            continue
+        verb = str(e.get("verb_phrase", "")).strip()
+        value = str(e.get("value", "")).strip()
+        if not verb and not value:
+            continue
+        out.append({
+            "raw_text": str(e.get("raw_text", "") or text).strip(),
+            "subject": str(e.get("subject", "the user")).strip() or "the user",
+            "subject_type": str(e.get("subject_type", "person")).strip() or "person",
+            "verb_phrase": verb,
+            "value": value,
+            "object_type": normalize_object_type(str(e.get("object_type", ""))),
+            "polarity": _norm_polarity(e.get("polarity")),
+            "modality": _norm_modality(e.get("modality")),
+            "occurred_at": _norm_ts(e.get("occurred_at")),
+            "corrects_hint": (str(e["corrects_hint"]).strip()
+                              if e.get("corrects_hint") else None),
+        })
+    return out
+
+
+def _norm_polarity(v) -> str:
+    v = str(v or "").strip().lower()
+    return v if v in {"start", "end", "update"} else START
+
+
+def _norm_modality(v) -> str:
+    v = str(v or "").strip().lower()
+    return v if v in {"happened", "planned", "hypothetical"} else HAPPENED
+
+
+def _norm_ts(v):
+    v = (str(v).strip() if v is not None else "")
+    return v or None

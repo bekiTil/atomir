@@ -44,7 +44,9 @@ mcp = FastMCP(
         "Long-term memory for the user. Call `recall` BEFORE answering anything "
         "that may depend on facts the user shared earlier (preferences, people, "
         "projects, decisions). Call `remember` AFTER learning a durable fact "
-        "about the user. Do not remember transient chit-chat."
+        "about the user. For 'when did X happen' or history questions, use "
+        "`timeline`. For 'forget about X', use `forget_about`. Do not remember "
+        "transient chit-chat."
     ),
 )
 
@@ -86,6 +88,28 @@ def forget(fact_id: str) -> str:
     """Delete a single stored fact by its id (get ids from `list_memories`)."""
     ok = _memory().delete(_USER, fact_id)
     return "Forgotten." if ok else f"No fact with id {fact_id}."
+
+
+@mcp.tool()
+def timeline(entity: str = "", branch: str = "") -> str:
+    """Show the user's time-ordered event history (when things happened / changed).
+    Optionally filter to an entity (a person/org/place) and/or a relationship
+    (e.g. works_at, lives_in). Requires the episodic layer to be enabled."""
+    events = _memory().timeline(_USER, entity=entity or None, branch=branch or None)
+    if not events:
+        return "No timeline events found."
+    lines = [f"- {e.get('occurred_at') or e.get('recorded_at') or '?'}: {e['text']}"
+             for e in events]
+    return "Timeline:\n" + "\n".join(lines)
+
+
+@mcp.tool()
+def forget_about(entity: str) -> str:
+    """Forget EVERYTHING about a person, organization, or place by name — removes
+    all related facts, events, and raw messages (cascades). Use this for
+    'forget about X' requests. Requires the episodic layer to be enabled."""
+    ok = _memory().forget(_USER, entity)
+    return f"Forgotten everything about {entity}." if ok else f"Nothing found about {entity}."
 
 
 def main() -> None:

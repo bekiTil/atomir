@@ -29,6 +29,16 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default)
 
 
+def _threshold(env_name: str, key: str) -> float:
+    """A branch/resolution threshold: env override wins, else the per-embedder
+    calibrated default from the thresholds table (see eval/episodic/branch_microeval)."""
+    override = _env(env_name)
+    if override:
+        return float(override)
+    from atomir.episodic.thresholds import get_thresholds
+    return get_thresholds(_env("EMBED_BACKEND", "fake"))[key]
+
+
 @dataclass(frozen=True)
 class Settings:
     """Immutable snapshot of configuration read from the environment."""
@@ -71,6 +81,46 @@ class Settings:
     reconcile_min_sim: float = field(
         default_factory=lambda: float(_env("RECONCILE_MIN_SIM", "0.5"))
     )
+
+    # --- Episodic memory (additive; OFF by default) -----------------------
+    # The event-log / timeline layer. Default OFF so upgrading never changes an
+    # existing install's behavior; turn it on to opt in.
+    # With it off, add/search/answer behave exactly as the current release.
+    episodic_enabled: bool = field(
+        default_factory=lambda: _env("EPISODIC_ENABLED", "false").lower() == "true"
+    )
+    # Three-zone branch matcher. AUTO is per-embedder; the gray
+    # band [GRAY_LOW, AUTO) is routed to the LLM judge. Tunable via eval/episodic.
+    branch_match_auto: float = field(
+        default_factory=lambda: _threshold("BRANCH_MATCH_AUTO", "auto"))
+    branch_match_gray_low: float = field(
+        default_factory=lambda: _threshold("BRANCH_MATCH_GRAY_LOW", "gray_low"))
+    # Entity resolution v2: when on, an unknown mention that matches no
+    # alias exactly is compared to existing entities by embedding, and an LLM
+    # confirms an ambiguous match (else a new entity). Off keeps cheap v1
+    # exact-alias matching (under-merges rather than risk a wrong merge).
+    entity_v2: bool = field(
+        default_factory=lambda: _env("ENTITY_V2", "false").lower() == "true"
+    )
+    entity_match_min: float = field(
+        default_factory=lambda: float(_env("ENTITY_MATCH_MIN", "0.60"))
+    )
+    # Summarize a branch's oldest segment once it exceeds this many nodes.
+    checkpoint_every: int = field(
+        default_factory=lambda: int(_env("CHECKPOINT_EVERY", "50"))
+    )
+    # Optional ontology pack to pre-seed a user's branch registry for a known
+    # domain (e.g. "personal"). Default empty = general-purpose: seed nothing,
+    # let the ontology emerge per-user (kept consistent by registry feedback).
+    ontology_pack: str = field(default_factory=lambda: _env("ONTOLOGY_PACK"))
+    # Read-side branch_hint resolution (relative-best): resolve to the top
+    # branch only when it clears FLOOR and beats the runner-up by MARGIN.
+    branch_resolve_floor: float = field(
+        default_factory=lambda: _threshold("BRANCH_RESOLVE_FLOOR", "floor"))
+    branch_resolve_margin: float = field(
+        default_factory=lambda: _threshold("BRANCH_RESOLVE_MARGIN", "margin"))
+    # Empty = use STORE_BACKEND for episodic data too; or "sqlite".
+    episodic_store: str = field(default_factory=lambda: _env("EPISODIC_STORE"))
 
     # --- Vector store slot ------------------------------------------------
     # Selected by `store_backend` like the other two slots (no hardcoded vendor).

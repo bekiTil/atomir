@@ -52,6 +52,29 @@ def get_all(user_id: str = Query(...)) -> list[dict]:
     return service.get_all(user_id)
 
 
+@app.get("/timeline")
+def timeline(
+    user_id: str = Query(...),
+    entity: str | None = Query(None),
+    branch: str | None = Query(None),
+    since: str | None = Query(None),
+    until: str | None = Query(None),
+) -> list[dict]:
+    """Ordered events for an entity/branch (empty unless EPISODIC_ENABLED)."""
+    return service.timeline(user_id, entity=entity, branch=branch, since=since, until=until)
+
+
+class ForgetBody(BaseModel):
+    user_id: str
+    entity: str
+
+
+@app.post("/forget")
+def forget(body: ForgetBody) -> dict:
+    """Forget everything about an entity by name (cascades; needs episodic)."""
+    return {"forgotten": service.forget(body.user_id, body.entity)}
+
+
 @app.delete("/memories/{fact_id}")
 def delete_one(fact_id: str, user_id: str = Query(...)) -> dict:
     if not service.delete(user_id, fact_id):
