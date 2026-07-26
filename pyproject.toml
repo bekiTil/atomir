@@ -55,6 +55,9 @@ include = ["atomir*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+# Put the repo root on sys.path so tests can import the source package and the
+# (non-installed) eval harnesses regardless of how pytest is invoked.
+pythonpath = ["."]
 markers = [
     "qdrant: needs qdrant-client (and a reachable/in-memory Qdrant); skipped otherwise",
 ]
