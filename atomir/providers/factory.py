@@ -24,6 +24,7 @@ class LLMFactory:
     def _registry() -> dict[str, type[LLM]]:
         from atomir.llm import FakeLLM, GroqLLM  # Groq is the FIRST impl, not the only one
         from atomir.llm.anthropic import AnthropicLLM
+        from atomir.llm.gemini import GeminiLLM
         from atomir.llm.ollama import OllamaLLM
         from atomir.llm.openai import OpenAILLM
 
@@ -32,6 +33,7 @@ class LLMFactory:
             "groq": GroqLLM,
             "openai": OpenAILLM,
             "anthropic": AnthropicLLM,
+            "gemini": GeminiLLM,
             "ollama": OllamaLLM,
         }
 
@@ -51,6 +53,7 @@ class EmbedderFactory:
     @staticmethod
     def _registry() -> dict[str, type[Embedder]]:
         from atomir.embeddings import FakeEmbedder, JinaEmbedder
+        from atomir.embeddings.gemini import GeminiEmbedder
         from atomir.embeddings.ollama import OllamaEmbedder
         from atomir.embeddings.openai import OpenAIEmbedder
         from atomir.embeddings.voyage import VoyageEmbedder
@@ -60,6 +63,7 @@ class EmbedderFactory:
             "jina": JinaEmbedder,
             "voyage": VoyageEmbedder,
             "openai": OpenAIEmbedder,
+            "gemini": GeminiEmbedder,
             "ollama": OllamaEmbedder,
         }
 
