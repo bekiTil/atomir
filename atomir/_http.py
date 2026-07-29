@@ -11,6 +11,7 @@ Non-transient HTTP errors (401/403/400) raise immediately.
 
 from __future__ import annotations
 
+import random
 import socket
 import time
 import urllib.error
@@ -19,8 +20,18 @@ import urllib.request
 _RETRYABLE = {429, 500, 502, 503, 504}
 
 
-def request_bytes(req: urllib.request.Request, *, timeout: float = 60.0, attempts: int = 5) -> bytes:
-    """POST/GET the request and return the response body, retrying transient errors."""
+def _sleep(base: float, max_backoff: float) -> None:
+    # Exponential backoff capped, plus jitter (0–50%) so many concurrent callers
+    # hitting a rate limit don't retry in lockstep (thundering herd).
+    delay = min(base, max_backoff)
+    time.sleep(delay + random.uniform(0, delay * 0.5))
+
+
+def request_bytes(req: urllib.request.Request, *, timeout: float = 60.0,
+                  attempts: int = 6, max_backoff: float = 30.0) -> bytes:
+    """POST/GET the request and return the response body, retrying transient
+    errors (429/5xx and transport blips) with jittered exponential backoff,
+    honoring a numeric `Retry-After` when present."""
     for i in range(attempts):
         last = i == attempts - 1
         try:
@@ -30,8 +41,10 @@ def request_bytes(req: urllib.request.Request, *, timeout: float = 60.0, attempt
             # HTTPError is a URLError subclass — handle status codes first.
             if e.code in _RETRYABLE and not last:
                 ra = e.headers.get("Retry-After")
-                delay = float(ra) if (ra and ra.replace(".", "", 1).isdigit()) else min(2 ** i, 8)
-                time.sleep(delay)
+                if ra and ra.replace(".", "", 1).isdigit():
+                    time.sleep(min(float(ra), max_backoff) + random.uniform(0, 0.5))
+                else:
+                    _sleep(2 ** i, max_backoff)
                 continue
             raise
         except (urllib.error.URLError, TimeoutError, socket.timeout, ConnectionError):
@@ -39,5 +52,5 @@ def request_bytes(req: urllib.request.Request, *, timeout: float = 60.0, attempt
             # retry; on the final attempt let it raise.
             if last:
                 raise
-            time.sleep(min(2 ** i, 8))
+            _sleep(2 ** i, max_backoff)
     raise RuntimeError("unreachable")  # pragma: no cover

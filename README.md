@@ -58,8 +58,8 @@ Real providers: copy `.env.example` → `.env`, then set backends + keys.
 
 | Slot | Options | Config |
 |---|---|---|
-| LLM | `fake` `groq` `openai` `anthropic` `gemini` `ollama` | `LLM_BACKEND`, `LLM_API_KEY`, `MODEL` |
-| Embedder | `fake` `jina` `voyage` `openai` `gemini` `ollama` | `EMBED_BACKEND`, `EMBED_API_KEY`, `EMBED_DIM` |
+| LLM | `fake` `groq` `openai` `anthropic` `gemini` `azure_openai` `ollama` | `LLM_BACKEND`, `LLM_API_KEY`, `MODEL` |
+| Embedder | `fake` `jina` `voyage` `openai` `gemini` `azure_openai` `ollama` | `EMBED_BACKEND`, `EMBED_API_KEY`, `EMBED_DIM` |
 | Store | `json` `qdrant` | `STORE_BACKEND`, `STORE_URL` / `STORE_PATH` |
 
 Adding a provider is one class + one registry line. `LLM_BASE_URL` /
