@@ -15,7 +15,7 @@ from atomir.episodic.projection import project_event
 from atomir.episodic.read import _event_result, episodic_search, walk_chain
 from atomir.episodic.registry import BranchMatcher, EntityResolver
 from atomir.episodic.store_base import EpisodicStore
-from atomir.episodic.telemetry import CountingEmbedder, CountingLLM
+from atomir.episodic.telemetry import CountingEmbedder, CountingLLM, MemoizingEmbedder
 from atomir.providers.embedder_base import Embedder
 from atomir.providers.llm_base import LLM
 from atomir.store_base import MemoryStore
@@ -38,16 +38,19 @@ class EpisodicMemory:
         self.ontology_pack = ontology_pack
         self.resolve_floor = resolve_floor
         self.resolve_margin = resolve_margin
-        # Counting proxies so add() can report real per-message cost.
+        # Counting proxies so add() can report real per-message cost; a memoizing
+        # layer over the counter caches embeddings (write-time vectors reused by
+        # the read path instead of re-embedding every event/branch per query).
         self.llm = CountingLLM(llm)
-        self.embedder = CountingEmbedder(embedder)
+        self._emb = CountingEmbedder(embedder)
+        self.embedder = MemoizingEmbedder(self._emb)
         self.entities = EntityResolver(episodic, self.embedder, self.llm,
                                        v2=entity_v2, match_min=entity_match_min)
         self.matcher = BranchMatcher(episodic, self.llm, self.embedder,
                                      auto=branch_auto, gray_low=branch_gray_low)
 
-    def add(self, user_id: str, text: str) -> dict:
-        recorded_at = now_iso()
+    def add(self, user_id: str, text: str, recorded_at: str | None = None) -> dict:
+        recorded_at = recorded_at or now_iso()
         self.llm.reset()
         self.embedder.reset()
         # Optional pack: pre-seed the registry for a known domain on first write.
@@ -107,7 +110,7 @@ class EpisodicMemory:
                 "diagnostics": {  # real per-add cost, not "~1 call"
                     "extraction_calls": self.llm.c.extraction,
                     "judge_calls": self.llm.c.judge,
-                    "embedding_calls": self.embedder.c.embedding,
+                    "embedding_calls": self._emb.c.embedding,
                     "total_llm_tokens": self.llm.c.tokens,  # approximate (chars/4)
                 }}
 
