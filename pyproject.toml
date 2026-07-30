@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 # Distribution (PyPI) name matches the import package `atomir`.
 name = "atomir"
-version = "0.8.0"
+version = "0.8.1"
 description = "Atomic memory infrastructure for agents — atomic facts on write, atomic sub-question decomposition on read."
 readme = "README.md"
 requires-python = ">=3.11"

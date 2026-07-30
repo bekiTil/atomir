@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.1 — Providers + read-path performance
+
+**New**
+- **Gemini** and **Azure OpenAI** providers (LLM + embedder). Azure is
+  reasoning-model aware (`reasoning_effort`, default `minimal`) and reports token
+  usage including reasoning tokens; both use the shared retry with jittered
+  backoff (429/5xx + `Retry-After`).
+- `add(..., recorded_at=...)` sets the episodic message time so dated sessions
+  anchor events correctly.
+
+**Performance**
+- The episodic read path now reuses embeddings computed at write time instead of
+  re-embedding every event and branch on each query — turning an O(N) per-query
+  embedding cost into O(1) after first lookup. Identical vectors; no behavior or
+  quality change.
+
 ## 0.8.0 — Episodic memory (optional, experimental)
 
 Adds an event-log layer alongside the atomic-fact store, **off by default**
