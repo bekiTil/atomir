@@ -139,15 +139,18 @@ def walk_chain(episodic: EpisodicStore, user_id: str, *, entity_id: str | None =
             if not e.superseded and (e.kind == "checkpoint" or not e.checkpointed)]
 
 
-def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int) -> list[Event]:
-    """Top-k events by similarity to the question, returned in chronological order."""
-    if len(events) <= k:
-        return sorted(events, key=lambda e: e.order_key)
+def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int,
+                 order: str = "time") -> list[Event]:
+    """Top-k events by similarity to the question. order='relevance' keeps them in
+    descending-relevance order (so the most on-topic event survives a tight top-k
+    cutoff — the date in each text preserves chronology for the reader);
+    order='time' returns them chronologically."""
     from atomir.episodic.registry import cosine
     qv = embedder.embed_query(question)
     scored = sorted(events, reverse=True,
                     key=lambda e: cosine(qv, embedder.embed_passage(_event_result(None, e)["text"])))
-    return sorted(scored[:k], key=lambda e: e.order_key)
+    top = scored[:k]
+    return top if order == "relevance" else sorted(top, key=lambda e: e.order_key)
 
 
 def _events_by_similarity(episodic: EpisodicStore, embedder: Embedder, user_id: str,
@@ -155,7 +158,7 @@ def _events_by_similarity(episodic: EpisodicStore, embedder: Embedder, user_id: 
     """Bounded fallback when no branch resolves: rank the entity's events by
     similarity to the question, top-k — far better than dumping the timeline."""
     return _rank_events(embedder, walk_chain(episodic, user_id, entity_id=entity_id),
-                        question, k)
+                        question, k, order="relevance")
 
 
 def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
@@ -200,12 +203,12 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                     or hint in {a.casefold() for a in branch.aliases})
                 mechanisms.append("exact" if is_exact else "relative-best")
                 events = walk_chain(episodic, user_id, entity_id=entity_id, branch=branch.branch)
-                # Cap a long chain: keep checkpoints + the most relevant
-                # k, so a big branch doesn't flood context.
-                if len(events) > 3 * k:
-                    cps = [e for e in events if e.kind == "checkpoint"]
-                    rest = [e for e in events if e.kind != "checkpoint"]
-                    events = cps + _rank_events(embedder, rest, sq["text"], k)
+                # Rank the chain by relevance to the sub-question so the matching
+                # event surfaces into a tight top-k cutoff (dates in the text keep
+                # chronology); checkpoints stay pinned at the front.
+                cps = [e for e in events if e.kind == "checkpoint"]
+                rest = [e for e in events if e.kind != "checkpoint"]
+                events = cps + _rank_events(embedder, rest, sq["text"], k, order="relevance")
             elif entity_id:
                 # No branch resolved -> bounded semantic top-k, not the whole timeline.
                 fallback_used = True
