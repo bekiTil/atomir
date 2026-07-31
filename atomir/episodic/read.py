@@ -117,7 +117,11 @@ def _event_result(episodic: EpisodicStore, e: Event) -> dict:
     else:
         verb = e.branch.replace("_", " ")
         neg = "no longer " if e.polarity == "end" else ""
-        text = f"The user {neg}{verb} {e.value}".strip()
+        stem = f"The user {neg}{verb} {e.value}".strip()
+        # Stamp the event's date into the retrievable text so "when did X happen"
+        # questions can be answered — projection otherwise drops the date.
+        date = (e.occurred_at or e.recorded_at or "")[:10]
+        text = f"On {date}, {stem[0].lower()}{stem[1:]}" if date and stem else stem
     return {
         "id": e.id, "type": TEMPORAL, "text": text, "kind": e.kind,
         "value": e.value, "polarity": e.polarity, "occurred_at": e.occurred_at,
