@@ -45,6 +45,9 @@ class Event:
     recorded_at: str            # ISO; when the user said it (always set)
     # --- optional (defaulted so old records stay loadable) ---
     value_entity_id: str | None = None  # object resolved to an entity, if any
+    qualifier: str | None = None     # time-quantity modifying the value, kept OUT
+    # of `value` so it never fragments reconcile: "4 years", "since 2019",
+    # "10 years ago". None for the vast majority of events.
     occurred_at: str | None = None   # ISO; when it happened (None if unknown)
     modality: str = HAPPENED    # HAPPENED | PLANNED | HYPOTHETICAL
     corrects: str | None = None      # event id this corrects (not a state change)

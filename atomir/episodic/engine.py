@@ -89,7 +89,8 @@ class EpisodicMemory:
                 id=new_id("ev"), user_id=user_id, entity_id=subj_entity.entity_id,
                 branch=branch.branch, value=value, raw_text=rev["raw_text"],
                 polarity=rev["polarity"], recorded_at=recorded_at,
-                value_entity_id=value_entity_id, occurred_at=rev["occurred_at"],
+                value_entity_id=value_entity_id, qualifier=rev.get("qualifier"),
+                occurred_at=rev["occurred_at"],
                 modality=rev["modality"], episode_id=episode.id, projected=False,
             )
             self.episodic.append_event(event)  # write-ahead: event before fact

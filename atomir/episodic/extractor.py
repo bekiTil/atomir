@@ -20,7 +20,12 @@ _EXTRACT_SYSTEM = (
     "- subject_type: person | org | ...\n"
     "- verb_phrase: the predicate WITHOUT the object, e.g. 'joined', 'left', "
     "'reports to', 'lives in'\n"
-    "- value: the object/value, e.g. 'Acme Corp', 'Dana', 'Paris'\n"
+    "- value: the object/value ONLY, e.g. 'Acme Corp', 'Dana', 'Paris', 'friends'. "
+    "Do NOT put a duration or age here.\n"
+    "- qualifier: a time-QUANTITY that modifies the value — how long, how old, or "
+    "since when ('4 years', '28 years old', 'since 2019', '10 years ago'); null if "
+    "none. Keep the object in `value` and the span in `qualifier`: 'I've known "
+    "these friends for 4 years' -> value='friends', qualifier='4 years'.\n"
     "- object_type: choose ONE of: organization | person | place | activity | "
     "object | language | media | animal | condition | other\n"
     "- polarity: 'start' (relationship/state begins), 'end' (it ceases), or "
@@ -66,6 +71,7 @@ def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "") ->
             "verb_phrase": verb,
             "value": value,
             "object_type": normalize_object_type(str(e.get("object_type", ""))),
+            "qualifier": (str(e["qualifier"]).strip() if e.get("qualifier") else None),
             "polarity": _norm_polarity(e.get("polarity")),
             "modality": _norm_modality(e.get("modality")),
             "occurred_at": _norm_ts(e.get("occurred_at")),
