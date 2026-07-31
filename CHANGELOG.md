@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.2 — Temporal read quality
+
+**Improved**
+- **Temporal chain ranking**: the chain walk now ranks events by relevance to the
+  sub-question (checkpoints stay pinned), so the on-topic event survives a tight
+  top-k cutoff. The date stamped into each event's text preserves chronology for
+  the reader.
+- **Durations & ages kept intact**: extraction now records a value's time-quantity
+  in a separate `qualifier` ("4 years", "since 2019", "28 years old") instead of
+  letting it displace the object — "friends for 4 years" keeps `friends` as the
+  value and surfaces as "friends (4 years)" on read, so "how long" questions are
+  answerable. The qualifier stays out of `value`, so reconcile identity is
+  unaffected; events without one render exactly as before.
+
 ## 0.8.1 — Providers + read-path performance
 
 **New**
