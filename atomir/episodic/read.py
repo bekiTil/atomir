@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from atomir.atomic_read import atomic_search
 from atomir.ranking import BM25
-from atomir.episodic.models import Event
+from atomir.episodic.models import Event, value_phrase
 from atomir.episodic.store_base import EpisodicStore
 from atomir.providers.embedder_base import Embedder
 from atomir.providers.llm_base import LLM
@@ -117,7 +117,10 @@ def _event_result(episodic: EpisodicStore, e: Event) -> dict:
     else:
         verb = e.branch.replace("_", " ")
         neg = "no longer " if e.polarity == "end" else ""
-        stem = f"The user {neg}{verb} {e.value}".strip()
+        # Weave the qualifier back into the object ("friends (4 years)") so
+        # duration/age questions are answerable — the span lives only here on the
+        # read path, never in `value`.
+        stem = f"The user {neg}{verb} {value_phrase(e.value, e.qualifier)}".strip()
         # Stamp the event's date into the retrievable text so "when did X happen"
         # questions can be answered — projection otherwise drops the date.
         date = (e.occurred_at or e.recorded_at or "")[:10]

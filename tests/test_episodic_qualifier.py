@@ -111,13 +111,39 @@ def test_differing_qualifiers_are_the_same_relationship(tmp_path):
     assert len(live) == 1
 
 
-# ---- read/answer output is UNCHANGED (behind current behavior) ----
+# ---- step 5: the qualifier is woven back into the read/answer text ----
 
-def test_read_text_does_not_yet_surface_qualifier(tmp_path):
+def _mk(value, qualifier, branch="is_related_to", occurred_at="2023-06-09",
+        polarity="start"):
+    return Event(id=new_id("ev"), user_id="u", entity_id="ent", branch=branch,
+                 value=value, raw_text="x", polarity=polarity, recorded_at=now_iso(),
+                 qualifier=qualifier, occurred_at=occurred_at)
+
+
+def test_event_text_surfaces_qualifier():
     from atomir.episodic.read import _event_result
-    e = Event(id=new_id("ev"), user_id="u", entity_id="ent", branch="is_related_to",
-              value="friends", raw_text="known these friends for 4 years",
-              polarity="start", recorded_at=now_iso(), qualifier="4 years",
-              occurred_at="2023-06-09")
-    text = _event_result(None, e)["text"]
-    assert text == "On 2023-06-09, the user is related to friends"   # no qualifier yet
+    text = _event_result(None, _mk("friends", "4 years"))["text"]
+    assert text == "On 2023-06-09, the user is related to friends (4 years)"
+
+
+def test_event_text_without_qualifier_is_unchanged():
+    from atomir.episodic.read import _event_result
+    text = _event_result(None, _mk("Acme Corp", None, branch="works_at"))["text"]
+    assert text == "On 2023-06-09, the user works at Acme Corp"   # no empty parens
+
+
+def test_projected_fact_text_surfaces_qualifier():
+    from atomir.episodic.models import BranchRecord
+    from atomir.episodic.projection import state_text
+    b = BranchRecord(user_id="u", entity_id="ent", branch="is_related_to",
+                     state_template="is related to", description="")
+    assert state_text(b, _mk("friends", "4 years")) == \
+        "The user is related to friends (4 years)"
+
+
+def test_value_phrase_edge_cases():
+    from atomir.episodic.models import value_phrase
+    assert value_phrase("friends", "4 years") == "friends (4 years)"
+    assert value_phrase("Acme", None) == "Acme"
+    assert value_phrase("Acme", "") == "Acme"
+    assert value_phrase("", "4 years") == "4 years"   # object empty -> no stray parens

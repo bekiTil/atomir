@@ -18,7 +18,7 @@ extracted independently. The projection is deterministic:
 
 from __future__ import annotations
 
-from atomir.episodic.models import END, HAPPENED, BranchRecord, Event
+from atomir.episodic.models import END, HAPPENED, BranchRecord, Event, value_phrase
 from atomir.episodic.store_base import EpisodicStore
 from atomir.providers.embedder_base import Embedder
 from atomir.store_base import MemoryStore
@@ -46,10 +46,11 @@ def state_text(branch: BranchRecord, event: Event) -> str:
     """Deterministic state phrasing for a projected fact. Negation
     renders ONLY from the (cleaned) branch state_template, never the event verb."""
     tmpl = _clean_template(branch.state_template)
+    val = value_phrase(event.value, event.qualifier)
     if event.polarity == END:
-        text = f"The user no longer {tmpl} {event.value}".strip()
+        text = f"The user no longer {tmpl} {val}".strip()
     else:
-        text = f"The user {tmpl} {event.value}".strip()
+        text = f"The user {tmpl} {val}".strip()
     # Render guard: the raw event verb must not leak a second time into the state.
     assert "no longer no longer" not in text, f"double negation in {text!r}"
     return text

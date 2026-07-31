@@ -26,6 +26,18 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid4().hex[:12]}"
 
 
+def value_phrase(value: str | None, qualifier: str | None) -> str:
+    """The object with its time-quantity woven back in for display: 'friends
+    (4 years)', 'Paris (since 2019)'. Either part may be empty. This is the single
+    place the qualifier rejoins the value on the read/answer path — it is kept out
+    of `value` everywhere else so it never affects reconcile identity."""
+    value = (value or "").strip()
+    qualifier = (qualifier or "").strip()
+    if value and qualifier:
+        return f"{value} ({qualifier})"
+    return value or qualifier
+
+
 def _from_dict(cls, d: dict):
     """Rebuild a dataclass from a stored dict, ignoring unknown keys and letting
     missing keys fall back to defaults (so old records stay loadable)."""
