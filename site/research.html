@@ -60,6 +60,18 @@
   .themetog{background:none;border:0;color:var(--fg-3);font-family:"JetBrains Mono",monospace;
     font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;padding:2px 0;transition:color .2s var(--ease)}
   .themetog:hover{color:var(--fg)}
+  .menutog{display:none;background:none;border:0;color:var(--fg-2);font-family:"JetBrains Mono",monospace;
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;padding:4px 0}
+  .menutog:hover{color:var(--fg)}
+  @media (max-width:760px){
+    nav{position:absolute;top:100%;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;
+      background:var(--bg);border-bottom:1px solid var(--rule);padding:2px 28px 14px;display:none}
+    nav.open{display:flex}
+    nav a{padding:13px 2px;font-size:16px;width:auto;border-bottom:1px solid var(--rule-soft)}
+    nav a:hover{color:var(--fg);border-bottom-color:var(--rule-soft)}
+    .themetog{padding:14px 2px;font-size:12px;text-align:left}
+    .menutog{display:inline-block}
+  }
 
   section{padding:64px 0;scroll-margin-top:calc(var(--header-h) + 12px)}
   h1{font-family:"Instrument Serif",Georgia,serif;font-weight:400;
@@ -117,7 +129,7 @@
     section{padding:46px 0}
     ul.rules li{flex-direction:column;gap:4px}
   }
-  @media (max-width:400px){ .wrap{padding:0 18px} nav{gap:14px;font-size:13px} }
+  @media (max-width:400px){ .wrap{padding:0 18px} nav{padding-left:18px;padding-right:18px} }
 </style>
 </head>
 <body>
@@ -126,7 +138,7 @@
 <header id="hdr">
   <div class="wrap bar">
     <a class="mark" href="/">atom<b>ir</b></a>
-    <nav>
+    <nav id="nav">
       <a href="/#how">How it works</a>
       <a href="/#start">Quickstart</a>
       <a href="/research" class="on">Research</a>
@@ -134,6 +146,7 @@
       <a href="https://github.com/bekiTil/atomir">GitHub <span class="arw">&#8599;</span></a>
       <button id="themetog" class="themetog" type="button" aria-label="Toggle light or dark theme">Light</button>
     </nav>
+    <button class="menutog" id="menutog" type="button" aria-label="Menu" aria-expanded="false">Menu</button>
   </div>
 </header>
 
@@ -248,6 +261,16 @@
     try{ localStorage.setItem('atomir-theme', t); }catch(e){}
     lbl();
   });
+
+  var menutog = document.getElementById('menutog'), navEl = document.getElementById('nav');
+  if (menutog && navEl){
+    var setMenu = function(open){ navEl.classList.toggle('open', open);
+      menutog.setAttribute('aria-expanded', open ? 'true' : 'false');
+      menutog.textContent = open ? 'Close' : 'Menu'; };
+    menutog.addEventListener('click', function(){ setMenu(!navEl.classList.contains('open')); });
+    navEl.querySelectorAll('a').forEach(function(a){ a.addEventListener('click', function(){ setMenu(false); }); });
+    addEventListener('resize', function(){ if (window.innerWidth > 760) setMenu(false); });
+  }
 
   var reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
   var reveals = document.querySelectorAll('.reveal');
