@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 162 162" fill="none" stroke="#000" aria-label="atomir">
+  <style>@media (prefers-color-scheme:dark){svg{stroke:#fff}.solid{fill:#fff}}</style>
+  <path stroke-width="7" d="M0 38 L38 0 L118 0 A32 32 0 0 1 150 32 L150 118 A32 32 0 0 1 118 150 L32 150 A32 32 0 0 1 0 118 Z"/>
+  <path stroke-width="13" d="M33 55 L55 33 L99 33 A18 18 0 0 1 117 51 L117 99 A18 18 0 0 1 99 117 L51 117 A18 18 0 0 1 33 99 Z"/>
+  <path class="solid" fill="#000" stroke="none" d="M58 68 L68 58 L82 58 A10 10 0 0 1 92 68 L92 82 A10 10 0 0 1 82 92 L68 92 A10 10 0 0 1 58 82 Z"/>
+</svg>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research — atomir</title>
+<meta name="description" content="Working notes and benchmark plan for atomir, an open-source memory layer for AI agents. Results are pending, run on public harnesses, published either way.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Karla:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<script>(function(){try{var t=localStorage.getItem('atomir-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+<noscript><style>.reveal{opacity:1 !important;transform:none !important}</style></noscript>
+<style>
+  :root{
+    --bg:#000;--panel:#0A0A0A;--rule:#242424;--rule-soft:#171717;
+    --fg:#FFF;--fg-2:#B4B4B4;--fg-3:#6E6E6E;
+    --header-bg:rgba(0,0,0,.6);--header-bg-2:rgba(0,0,0,.72);
+    --sel-bg:#fff;--sel-fg:#000;--grain-op:.028;
+    --gutter:112px;--header-h:65px;--ease:cubic-bezier(.22,.61,.36,1);
+  }
+  :root[data-theme="light"]{
+    --bg:#FFF;--panel:#F6F6F6;--rule:#E4E4E4;--rule-soft:#EEE;
+    --fg:#000;--fg-2:#464646;--fg-3:#8C8C8C;
+    --header-bg:rgba(255,255,255,.62);--header-bg-2:rgba(255,255,255,.8);
+    --sel-bg:#000;--sel-fg:#fff;--grain-op:.02;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:"Karla",system-ui,sans-serif;font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased;
+    transition:background .3s var(--ease),color .3s var(--ease)}
+  a{color:inherit}
+  ::selection{background:var(--sel-bg);color:var(--sel-fg)}
+  :focus-visible{outline:1px solid var(--fg);outline-offset:3px;border-radius:2px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px;position:relative}
+  .grain{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:var(--grain-op);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  .spine{position:absolute;left:28px;top:0;bottom:0;width:var(--gutter);border-right:1px solid var(--rule)}
+  .page{position:relative;padding-left:calc(var(--gutter) + 36px)}
+  .tick{position:absolute;left:0;width:var(--gutter);padding-right:20px;text-align:right;
+    font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.06em;color:var(--fg-3)}
+  .tick::after{content:"";position:absolute;right:-1px;top:.62em;width:9px;height:1px;background:var(--rule);
+    transition:width .3s var(--ease),background .3s var(--ease)}
+  .tick.on{color:var(--fg)}
+  .tick.on::after{background:var(--fg);width:15px}
+
+  header{position:sticky;top:0;z-index:50;background:var(--header-bg);
+    border-bottom:1px solid transparent;transition:border-color .3s var(--ease),background .3s var(--ease)}
+  @supports (backdrop-filter:blur(1px)){header{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}}
+  header.scrolled{border-bottom-color:var(--rule);background:var(--header-bg-2)}
+  .bar{display:flex;align-items:baseline;justify-content:space-between;padding:20px 0;gap:20px}
+  .mark{font-family:"JetBrains Mono",monospace;font-size:15px;letter-spacing:.14em;text-decoration:none}
+  .mark b{font-weight:500;border-bottom:1px solid var(--fg);padding-bottom:1px}
+  nav{display:flex;align-items:baseline;gap:24px;font-size:14px;color:var(--fg-2)}
+  nav a{text-decoration:none;padding-bottom:2px;border-bottom:1px solid transparent;
+    transition:color .2s var(--ease),border-color .2s var(--ease)}
+  nav a:hover,nav a.on{color:var(--fg);border-bottom-color:var(--fg)}
+  nav .arw{color:var(--fg-3)}
+  .themetog{background:none;border:0;color:var(--fg-3);font-family:"JetBrains Mono",monospace;
+    font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;padding:2px 0;transition:color .2s var(--ease)}
+  .themetog:hover{color:var(--fg)}
+
+  section{padding:64px 0;scroll-margin-top:calc(var(--header-h) + 12px)}
+  h1{font-family:"Instrument Serif",Georgia,serif;font-weight:400;
+    font-size:clamp(38px,5.2vw,58px);line-height:1.05;letter-spacing:-.02em;margin:0 0 20px}
+  h2{font-family:"Instrument Serif",Georgia,serif;font-weight:400;font-size:clamp(24px,3vw,32px);
+    line-height:1.18;margin:0 0 14px;letter-spacing:-.015em}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--fg-3);margin:0 0 12px}
+  .lede{font-size:19px;color:var(--fg-2);max-width:58ch;margin:0}
+  p{max-width:62ch}
+  .muted{color:var(--fg-2)}
+  hr{border:0;border-top:1px solid var(--rule);margin:0}
+  .textlink{text-decoration:none;border-bottom:1px solid var(--fg-3);transition:border-color .2s var(--ease)}
+  .textlink:hover{border-bottom-color:var(--fg)}
+  .cta{display:inline-block;margin-top:24px;padding:12px 20px;border:1px solid var(--fg);
+    color:var(--fg);text-decoration:none;border-radius:3px;font-size:15px;
+    transition:background .2s var(--ease),color .2s var(--ease)}
+  .cta:hover{background:var(--fg);color:var(--bg)}
+
+  .log{border-top:1px solid var(--rule);padding:26px 0}
+  .log:first-of-type{border-top:0}
+  .log .date{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--fg-3);letter-spacing:.06em;margin:0 0 8px}
+  .log h3{margin:0 0 8px;font-size:20px;font-weight:600;letter-spacing:-.005em}
+  .log p{margin:0 0 12px;color:var(--fg-2);font-size:16px}
+
+  table{width:100%;border-collapse:collapse;margin-top:22px;font-size:15px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--rule-soft)}
+  th{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--fg-3);font-weight:500;border-bottom-color:var(--rule)}
+  td.pending{color:var(--fg-3);font-family:"JetBrains Mono",monospace;font-size:13px}
+
+  .panel{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:22px 24px;margin-top:24px}
+  .panel p{margin:0;color:var(--fg-2)}
+
+  ul.rules{list-style:none;padding:0;margin:20px 0 0}
+  ul.rules li{padding:12px 0;border-bottom:1px dashed var(--rule-soft);color:var(--fg-2);font-size:16px;display:flex;gap:18px}
+  ul.rules li b{color:var(--fg);font-weight:500;min-width:180px;display:inline-block}
+
+  footer{border-top:1px solid var(--rule);padding:34px 0 60px;color:var(--fg-3);font-size:14px}
+  .foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .reveal{opacity:1;transform:none;transition:none}
+    .tick::after{transition:none}
+  }
+  @media (max-width:820px){
+    :root{--gutter:0px}
+    .spine{display:none}
+    .page{padding-left:0}
+    .tick{position:static;text-align:left;width:auto;padding:0 0 8px;display:block}
+    .tick::after{display:none}
+    section{padding:46px 0}
+    ul.rules li{flex-direction:column;gap:4px}
+  }
+  @media (max-width:400px){ .wrap{padding:0 18px} nav{gap:14px;font-size:13px} }
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header id="hdr">
+  <div class="wrap bar">
+    <a class="mark" href="/">atom<b>ir</b></a>
+    <nav>
+      <a href="/#how">How it works</a>
+      <a href="/#start">Quickstart</a>
+      <a href="/research" class="on">Research</a>
+      <a href="/docs">Docs</a>
+      <a href="https://github.com/bekiTil/atomir">GitHub <span class="arw">&#8599;</span></a>
+      <button id="themetog" class="themetog" type="button" aria-label="Toggle light or dark theme">Light</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="spine" aria-hidden="true"></div>
+
+<section class="page">
+  <div class="tick">log</div>
+  <h1 class="reveal">Research log.</h1>
+  <p class="lede reveal">Everything I've tried, what held up, and what didn't. Results get published whether or not they flatter the project.</p>
+</section>
+
+<hr>
+
+<section class="page">
+  <div class="tick on">open</div>
+  <p class="eyebrow reveal">Open question</p>
+  <h2 class="reveal">Does structure beat search on the questions retrieval buries?</h2>
+  <p class="muted reveal">Two claims to test. That decomposing a question into sub-questions before retrieving answers multi-hop questions a single search misses. And that walking a timeline answers &ldquo;when did this change?&rdquo; from fewer retrieved items than ranking memories. Both should hold. The honest test is someone else's benchmark, someone else's harness, existing systems as baselines, same models throughout.</p>
+
+  <table class="reveal">
+    <thead><tr><th>Benchmark</th><th>Scope</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>LoCoMo</td><td>Long conversation recall, multi-hop and temporal</td><td class="pending">running</td></tr>
+      <tr><td>LongMemEval</td><td>Multi-session, temporal reasoning subset</td><td class="pending">queued</td></tr>
+      <tr><td>Baselines</td><td>Existing memory systems, re-run on the same stack</td><td class="pending">queued</td></tr>
+    </tbody>
+  </table>
+
+  <div class="panel reveal">
+    <p>I have results from my own scenarios already. I'm not printing them. Small samples, my scenarios, my scoring &mdash; it's very easy to build an evaluation that agrees with you, and a number nobody can reproduce is worth less than no number at all.</p>
+  </div>
+</section>
+
+<hr>
+
+<section class="page">
+  <div class="tick">notes</div>
+  <p class="eyebrow reveal">Working notes</p>
+  <h2 class="reveal">Written up as it happened.</h2>
+
+  <div class="log reveal">
+    <p class="date">JUL 2026</p>
+    <h3>If we trust agents to reason, why not let them ask?</h3>
+    <p>Everyone optimises how memory is written. This one is about the read side: let the model decompose the question into the smaller ones it would need answered first, then retrieve for those. Tested on LoCoMo through an existing harness &mdash; strong on multi-hop, and it exposed exactly where the hole was.</p>
+    <a class="textlink" href="https://berekettilahun.substack.com/p/if-we-trust-agents-to-reason-why?r=2pok9i" target="_blank" rel="noopener">Read the essay &rarr;</a>
+  </div>
+
+  <div class="log reveal">
+    <p class="date">JUL 2026</p>
+    <h3>I told you where it broke. So I went and fixed it.</h3>
+    <p>The hole was time. Fact stores overwrite, so &ldquo;when did this change?&rdquo; has nothing to retrieve. This is the timeline layer: one page per relationship, a dated line per change, nothing erased &mdash; and the two-dates problem nobody warns you about.</p>
+    <a class="textlink" href="https://berekettilahun.substack.com/p/i-told-you-where-it-broke-so-i-went?r=2pok9i" target="_blank" rel="noopener">Read the essay &rarr;</a>
+  </div>
+</section>
+
+<hr>
+
+<section class="page">
+  <div class="tick">method</div>
+  <p class="eyebrow reveal">How results get run</p>
+  <h2 class="reveal">Rules I'm holding myself to.</h2>
+  <ul class="rules reveal">
+    <li><b>Someone else's harness</b>Benchmarks run on the existing public evaluation code, unmodified scoring and question sets.</li>
+    <li><b>Same stack everywhere</b>Every system compared &mdash; including the baselines &mdash; runs on identical models and embeddings, re-run by me rather than quoted from a paper.</li>
+    <li><b>Unfavourable rows included</b>Every question category gets published, not the ones that look good.</li>
+    <li><b>Reproducible or it doesn't count</b>The harness ships in the repo. If you can't re-run it, I shouldn't be claiming it.</li>
+  </ul>
+</section>
+
+<hr>
+
+<section class="page">
+  <div class="tick">fund</div>
+  <p class="eyebrow reveal">Fund the benchmarks</p>
+  <h2 class="reveal">Reproducible results cost compute.</h2>
+  <p class="muted reveal">Running the full plan is not free &mdash; LoCoMo and LongMemEval in full, every baseline re-run on identical models and embeddings, is real API and GPU time. If you'd like the numbers to exist sooner, sponsoring a run is the most direct way to help. Email me and we'll sort it out; every sponsored run ships with its harness and raw output in the repo &mdash; favourable or not.</p>
+  <a class="cta" href="mailto:btilahun287@gmail.com?subject=Sponsoring%20an%20atomir%20benchmark%20run">Email me to sponsor a run &rarr;</a>
+</section>
+
+<hr>
+
+<section class="page">
+  <div class="tick">next</div>
+  <p class="eyebrow reveal">What's next</p>
+  <h2 class="reveal">Where this goes.</h2>
+  <p class="muted reveal">Benchmark results first. After that: better handling of questions that slice across timelines rather than down one, and a scale story beyond the development store. If the numbers say the approach doesn't hold up, that gets written up too.</p>
+  <p class="muted reveal">If you want to poke at it, break it, or prove me wrong &mdash; <a class="textlink" href="https://github.com/bekiTil/atomir">the repo is open</a>.</p>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap foot">
+    <span>atomir &mdash; open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
+    <span><a class="textlink" href="https://github.com/bekiTil/atomir">GitHub</a> &middot; <a class="textlink" href="https://pypi.org/project/atomir/">PyPI</a> &middot; <a class="textlink" href="/docs">Docs</a> &middot; <a class="textlink" href="/">Home</a></span>
+  </div>
+</footer>
+
+<script>
+  var hdr = document.getElementById('hdr');
+  var onScroll = function(){ hdr.classList.toggle('scrolled', window.scrollY > 8); };
+  onScroll(); addEventListener('scroll', onScroll, {passive:true});
+
+  var tog = document.getElementById('themetog');
+  var lbl = function(){ var t = document.documentElement.getAttribute('data-theme');
+    if (tog) tog.textContent = (t === 'light' ? 'Dark' : 'Light'); };
+  lbl();
+  if (tog) tog.addEventListener('click', function(){
+    var t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem('atomir-theme', t); }catch(e){}
+    lbl();
+  });
+
+  var reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var reveals = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)){
+    reveals.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){
+          var el = e.target;
+          var sibs = Array.prototype.slice.call(el.parentNode.querySelectorAll(':scope > .reveal'));
+          var i = Math.max(0, sibs.indexOf(el));
+          el.style.transitionDelay = Math.min(i * 70, 280) + 'ms';
+          el.classList.add('in'); io.unobserve(el);
+        }
+      });
+    }, {rootMargin:'0px 0px -8% 0px', threshold:0.12});
+    reveals.forEach(function(el){ io.observe(el); });
+  }
+</script>
+</body>
+</html>

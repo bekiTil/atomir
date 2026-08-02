@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>atomir — atomic memory for AI agents</title>
+<meta name="description" content="Open-source memory for AI agents: atomic facts on write, sub-question decomposition on read, and an opt-in timeline for when things change. Vendor-neutral.">
+<meta property="og:title" content="atomir — atomic memory for AI agents">
+<meta property="og:description" content="Atomic facts on write, sub-question decomposition on read, and an opt-in timeline. Open-source, vendor-neutral memory for agents.">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Karla:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<script>(function(){try{var t=localStorage.getItem('atomir-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+<noscript><style>.reveal{opacity:1 !important;transform:none !important}</style></noscript>
+<style>
+  :root{
+    --bg:#000; --panel:#0A0A0A; --rule:#242424; --rule-soft:#171717;
+    --fg:#FFF; --fg-2:#B4B4B4; --fg-3:#6E6E6E;
+    --header-bg:rgba(0,0,0,.6); --header-bg-2:rgba(0,0,0,.72);
+    --sel-bg:#fff; --sel-fg:#000; --grain-op:.028;
+    --gutter:112px; --header-h:65px; --ease:cubic-bezier(.22,.61,.36,1);
+  }
+  :root[data-theme="light"]{
+    --bg:#FFF; --panel:#F6F6F6; --rule:#E4E4E4; --rule-soft:#EEE;
+    --fg:#000; --fg-2:#464646; --fg-3:#8C8C8C;
+    --header-bg:rgba(255,255,255,.62); --header-bg-2:rgba(255,255,255,.8);
+    --sel-bg:#000; --sel-fg:#fff; --grain-op:.02;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:"Karla",system-ui,sans-serif;font-size:17px;line-height:1.65;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    transition:background .3s var(--ease),color .3s var(--ease)}
+  a{color:inherit}
+  ::selection{background:var(--sel-bg);color:var(--sel-fg)}
+  :focus-visible{outline:1px solid var(--fg);outline-offset:3px;border-radius:2px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px;position:relative}
+
+  .grain{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:var(--grain-op);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  .spine{position:absolute;left:28px;top:0;bottom:0;width:var(--gutter);border-right:1px solid var(--rule)}
+  .page{position:relative;padding-left:calc(var(--gutter) + 36px)}
+  .tick{position:absolute;left:0;width:var(--gutter);padding-right:20px;text-align:right;
+    font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.06em;color:var(--fg-3)}
+  .tick::after{content:"";position:absolute;right:-1px;top:.62em;width:9px;height:1px;background:var(--rule);
+    transition:width .3s var(--ease),background .3s var(--ease)}
+  .tick.on{color:var(--fg)}
+  .tick.on::after{background:var(--fg);width:15px}
+
+  header{position:sticky;top:0;z-index:50;background:var(--header-bg);
+    border-bottom:1px solid transparent;transition:border-color .3s var(--ease),background .3s var(--ease)}
+  @supports (backdrop-filter:blur(1px)){header{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}}
+  header.scrolled{border-bottom-color:var(--rule);background:var(--header-bg-2)}
+  .bar{display:flex;align-items:baseline;justify-content:space-between;padding:20px 0;gap:20px}
+  .mark{font-family:"JetBrains Mono",monospace;font-size:15px;letter-spacing:.14em;text-decoration:none}
+  .mark b{font-weight:500;border-bottom:1px solid var(--fg);padding-bottom:1px}
+  nav{display:flex;align-items:baseline;gap:24px;font-size:14px;color:var(--fg-2)}
+  nav a{text-decoration:none;padding-bottom:2px;border-bottom:1px solid transparent;
+    transition:color .2s var(--ease),border-color .2s var(--ease)}
+  nav a:hover,nav a.on{color:var(--fg);border-bottom-color:var(--fg)}
+  nav .arw{color:var(--fg-3)}
+  .themetog{background:none;border:0;color:var(--fg-3);font-family:"JetBrains Mono",monospace;
+    font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;padding:2px 0;
+    transition:color .2s var(--ease)}
+  .themetog:hover{color:var(--fg)}
+
+  section{padding:76px 0;scroll-margin-top:calc(var(--header-h) + 12px)}
+  h1{font-family:"Instrument Serif",Georgia,serif;font-weight:400;
+    font-size:clamp(42px,6.4vw,74px);line-height:1.02;letter-spacing:-.02em;margin:0 0 22px}
+  h1 em{font-style:italic;border-bottom:1px solid var(--fg);padding-bottom:2px}
+  .lede{font-size:19px;color:var(--fg-2);max-width:55ch;margin:0 0 28px}
+  .lede strong{color:var(--fg);font-weight:500}
+
+  .cmdrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .install{display:inline-flex;align-items:center;gap:14px;background:var(--panel);
+    border:1px solid var(--rule);border-radius:3px;padding:11px 16px;
+    font-family:"JetBrains Mono",monospace;font-size:14.5px;transition:border-color .2s var(--ease)}
+  .install:hover{border-color:var(--fg-3)}
+  .install .dollar{color:var(--fg-3)}
+  .copy{background:none;border:0;color:var(--fg-3);font-family:inherit;font-size:12px;
+    cursor:pointer;letter-spacing:.06em;padding:2px 4px;border-radius:2px;transition:color .2s var(--ease)}
+  .copy:hover,.copy.done{color:var(--fg)}
+  .dl{display:inline-flex;align-items:baseline;gap:7px;text-decoration:none;color:var(--fg-3);
+    font-family:"JetBrains Mono",monospace;font-size:12px;letter-spacing:.04em;
+    border-bottom:1px solid transparent;transition:color .2s var(--ease),border-color .2s var(--ease)}
+  .dl:hover{color:var(--fg);border-bottom-color:var(--fg-3)}
+  .dl .n{color:var(--fg);font-size:14px}
+
+  .ledgers{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:46px}
+  .ledger{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:20px 22px 22px}
+  .ledger h3{margin:0 0 16px;font-family:"JetBrains Mono",monospace;font-size:11.5px;
+    letter-spacing:.16em;text-transform:uppercase;color:var(--fg-3);font-weight:500}
+  .row{display:flex;gap:16px;padding:7px 0;font-size:15px;border-bottom:1px dashed var(--rule-soft)}
+  .row:last-of-type{border-bottom:0}
+  .row .yr{font-family:"JetBrains Mono",monospace;font-size:13px;color:var(--fg-3);min-width:42px}
+  .row.gone .val,.row.gone .yr{color:var(--fg-3)}
+  .row.gone .val{text-decoration:line-through;text-decoration-thickness:1px}
+  .row .tag{margin-left:auto;font-family:"JetBrains Mono",monospace;font-size:11px;color:var(--fg)}
+  .verdict{margin-top:16px;padding-top:14px;border-top:1px solid var(--rule);
+    font-size:14px;color:var(--fg-3);line-height:1.5}
+  .verdict b{color:var(--fg);font-weight:500}
+  .verdict.bad b{color:var(--fg-3);text-decoration:line-through;text-decoration-thickness:1px}
+
+  h2{font-family:"Instrument Serif",Georgia,serif;font-weight:400;font-size:clamp(27px,3.4vw,37px);
+    line-height:1.15;margin:0 0 18px;letter-spacing:-.015em}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:11.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--fg-3);margin:0 0 12px}
+  p{max-width:60ch}
+  .muted{color:var(--fg-2)}
+  hr{border:0;border-top:1px solid var(--rule);margin:0}
+
+  pre{background:var(--panel);border:1px solid var(--rule);border-radius:3px;
+    padding:20px 22px;overflow-x:auto;font-family:"JetBrains Mono",monospace;
+    font-size:13.5px;line-height:1.85;margin:24px 0 0;color:var(--fg)}
+  .c-dim{color:var(--fg-3)}
+  .c-gone{color:var(--fg-3);text-decoration:line-through;text-decoration-thickness:1px}
+
+  .entry{position:relative;padding:24px 0;border-top:1px solid var(--rule)}
+  .entry:first-of-type{border-top:0;padding-top:6px}
+  .entry h4{margin:0 0 6px;font-size:17px;font-weight:600;letter-spacing:-.005em;
+    display:flex;align-items:baseline;gap:12px}
+  .entry h4 .no{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--fg-3);font-weight:400}
+  .entry p{margin:0;color:var(--fg-2);font-size:16px}
+
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:40px}
+
+  ul.plain{list-style:none;padding:0;margin:18px 0 0}
+  ul.plain li{padding:9px 0;border-bottom:1px dashed var(--rule-soft);display:flex;gap:16px;font-size:15.5px}
+  ul.plain li span{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--fg-3);min-width:96px}
+
+  .cta{display:inline-block;margin-top:26px;padding:12px 20px;border:1px solid var(--fg);
+    color:var(--fg);text-decoration:none;border-radius:3px;font-size:15px;
+    transition:background .2s var(--ease),color .2s var(--ease)}
+  .cta:hover{background:var(--fg);color:var(--bg)}
+  .textlink{text-decoration:none;border-bottom:1px solid var(--fg-3);transition:border-color .2s var(--ease)}
+  .textlink:hover{border-bottom-color:var(--fg)}
+
+  footer{border-top:1px solid var(--rule);padding:34px 0 60px;color:var(--fg-3);font-size:14px}
+  .foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+  .reveal{opacity:0;transform:translateY(14px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+  .reveal.in{opacity:1;transform:none}
+  .row.gone .val{animation:strike .5s ease-out .9s both}
+  @keyframes strike{from{color:var(--fg);text-decoration-color:transparent}
+                    to{color:var(--fg-3);text-decoration-color:var(--fg-3)}}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .row.gone .val{animation:none}
+    .reveal{opacity:1;transform:none;transition:none}
+    .tick::after{transition:none}
+  }
+  @media (max-width:820px){
+    :root{--gutter:0px}
+    .spine{display:none}
+    .page{padding-left:0}
+    .tick{position:static;text-align:left;width:auto;padding:0 0 8px;display:block}
+    .tick::after{display:none}
+    .ledgers,.cols{grid-template-columns:1fr}
+    section{padding:52px 0}
+  }
+  @media (max-width:400px){
+    .wrap{padding:0 18px}
+    nav{gap:14px;font-size:13px}
+    pre{font-size:12.5px;padding:16px 16px}
+  }
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header id="hdr">
+  <div class="wrap bar">
+    <a class="mark" href="/">atom<b>ir</b></a>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#start">Quickstart</a>
+      <a href="/research">Research</a>
+      <a href="/docs">Docs</a>
+      <a href="https://github.com/bekiTil/atomir">GitHub <span class="arw">&#8599;</span></a>
+      <button id="themetog" class="themetog" type="button" aria-label="Toggle light or dark theme">Light</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="spine" aria-hidden="true"></div>
+
+<section class="page">
+  <div class="tick">intro</div>
+  <h1 class="reveal">Agent memory that<br>knows <em>when</em>.</h1>
+  <p class="lede reveal">Most memory systems overwrite the past and flatten every question into one search. atomir is atomic on both ends — <strong>atomic facts in, atomic sub-questions out</strong> — and keeps a timeline when you need to know <strong>when</strong> it changed.</p>
+
+  <div class="cmdrow reveal">
+    <div class="install">
+      <span><span class="dollar">$</span> pip install atomir</span>
+      <button class="copy" type="button" data-copy="pip install atomir" aria-label="Copy install command">COPY</button>
+    </div>
+    <a class="dl" href="https://pepy.tech/projects/atomir" target="_blank" rel="noopener" aria-label="Download count on PyPI">
+      <span class="n" id="dlnum">&mdash;</span><span>downloads</span>
+    </a>
+  </div>
+
+  <div class="ledgers">
+    <div class="ledger reveal">
+      <h3>Fact memory</h3>
+      <div class="row gone"><span class="yr">2023</span><span class="val">works at Beta</span></div>
+      <div class="row"><span class="yr">2025</span><span class="val">works at Acme</span><span class="tag">now</span></div>
+      <div class="verdict bad">&ldquo;Where do I work?&rdquo; &rarr; Acme.<br>&ldquo;When did I switch?&rdquo; &rarr; <b>erased</b></div>
+    </div>
+    <div class="ledger reveal">
+      <h3>atomir</h3>
+      <div class="row"><span class="yr">2023</span><span class="val">joined Beta</span></div>
+      <div class="row"><span class="yr">2025</span><span class="val">left Beta</span></div>
+      <div class="row"><span class="yr">2025</span><span class="val">joined Acme</span><span class="tag">now</span></div>
+      <div class="verdict">&ldquo;Where do I work?&rdquo; &rarr; Acme.<br>&ldquo;When did I switch?&rdquo; &rarr; <b>2025. Beta before that, since 2023.</b></div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<section class="page" id="how">
+  <div class="tick on">how</div>
+  <p class="eyebrow reveal">How it works</p>
+  <h2 class="reveal">Atomic on both ends.</h2>
+  <p class="muted reveal" style="margin-bottom:34px">Memory that's atomic where it counts: atomic facts when you write, atomic sub-questions when you read &mdash; with an opt-in timeline for when things change.</p>
+
+  <div class="entry reveal">
+    <h4><span class="no">01</span> Atomic on write</h4>
+    <p>Each message is distilled into atomic facts and reconciled against what's already known &mdash; a change updates the existing fact instead of piling up a near-duplicate.</p>
+  </div>
+  <div class="entry reveal">
+    <h4><span class="no">02</span> Sub-questions on read</h4>
+    <p>A question is decomposed into the smaller ones it depends on; atomir retrieves for each and composes the answer from what it finds. Dense and keyword search run together, so a fact that hinges on a rare name or title isn't buried under fuzzy matches.</p>
+  </div>
+  <div class="entry reveal">
+    <h4><span class="no">03</span> Timelines when it matters</h4>
+    <p>Turn on the timeline layer and a change becomes a dated line on a per-relationship page &mdash; so &ldquo;when did this change?&rdquo; has something to read instead of an overwrite. One layer, off by default.</p>
+  </div>
+  <div class="entry reveal">
+    <h4><span class="no">04</span> Traceable and forgettable</h4>
+    <p>Every fact points back to the message it came from, so forgetting an entity removes its facts, any events, and the original text.</p>
+  </div>
+</section>
+
+<hr>
+
+<section class="page" id="why">
+  <div class="tick">why</div>
+  <p class="eyebrow reveal">Why the timeline layer exists</p>
+  <h2 class="reveal">Some answers aren't ranked low. They're gone.</h2>
+  <p class="muted reveal">When a fact store learns something changed, it updates the fact. That's the sensible thing to do, and it quietly deletes your history. No amount of better retrieval brings it back, because retrieval isn't the part that failed &mdash; so for &ldquo;when&rdquo; questions, atomir keeps the change as an event instead of an overwrite.</p>
+<pre class="reveal"><span class="c-dim">mem.add(</span>"u", "I work at Beta"<span class="c-dim">)</span>
+<span class="c-dim">mem.add(</span>"u", "I moved to Acme"<span class="c-dim">)</span>
+
+<span class="c-dim">mem.answer(</span>"u", "When did I switch jobs?"<span class="c-dim">)</span>
+<span class="c-gone">&rarr; fact store:  "You work at Acme."</span>   <span class="c-dim"># answers a different question</span>
+&rarr; atomir:      "In 2025 &mdash; Beta before that, since 2023."</pre>
+</section>
+
+<hr>
+
+<section class="page" id="start">
+  <div class="tick">start</div>
+  <div class="cols">
+    <div>
+      <p class="eyebrow reveal">Quickstart</p>
+      <h2 class="reveal">Five lines.</h2>
+      <p class="muted reveal">Runs with no keys for local testing. The timeline layer is opt-in and experimental.</p>
+<pre class="reveal"><span class="c-dim">from</span> atomir.assembly <span class="c-dim">import</span> build_memory_service
+
+mem = build_memory_service()
+mem.add(<span class="c-dim">"u1"</span>, <span class="c-dim">"I left Beta and joined Acme"</span>)
+
+mem.answer(<span class="c-dim">"u1"</span>, <span class="c-dim">"when did I switch jobs?"</span>)
+mem.timeline(<span class="c-dim">"u1"</span>, branch=<span class="c-dim">"works_at"</span>)</pre>
+      <a class="cta" href="/docs">Read the docs &rarr;</a>
+    </div>
+    <div>
+      <p class="eyebrow reveal">Runs on your stack</p>
+      <h2 class="reveal">No lock-in, no graph database.</h2>
+      <p class="muted reveal">Swap any piece from config. Tested end to end on more than one vendor, deliberately.</p>
+      <ul class="plain reveal">
+        <li><span>models</span>OpenAI &middot; Anthropic &middot; Gemini &middot; Azure OpenAI &middot; Groq &middot; Ollama</li>
+        <li><span>embeddings</span>OpenAI &middot; Gemini &middot; Jina &middot; Voyage &middot; Azure &middot; Ollama</li>
+        <li><span>storage</span>JSON file &middot; SQLite &middot; Qdrant</li>
+        <li><span>interfaces</span>Python &middot; HTTP &middot; MCP &middot; LangChain &middot; LangGraph</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<section class="page">
+  <div class="tick">research</div>
+  <p class="eyebrow reveal">Benchmarks &mdash; in progress</p>
+  <h2 class="reveal">No numbers here yet, on purpose.</h2>
+  <p class="muted reveal">I have results from my own scenarios and I don't trust them enough to print &mdash; it's easy to build an evaluation that agrees with you. I'm running the public benchmarks on the existing harness, with current systems as baselines on the same models, and publishing whatever comes out.</p>
+  <a class="cta" href="/research">Follow the research &rarr;</a>
+</section>
+
+<hr>
+
+<section class="page">
+  <div class="tick">limits</div>
+  <p class="eyebrow reveal">Where it doesn't fit</p>
+  <h2 class="reveal">Known edges.</h2>
+  <div class="cols">
+    <p class="muted reveal">Questions that hop between people's timelines &mdash; &ldquo;does anyone I know work at Acme?&rdquo; &mdash; want a graph, and atomir isn't one. That's deliberate: the point is getting structured memory without running a graph database.</p>
+    <p class="muted reveal">The JSON store is for development, not scale. The timeline layer is opt-in and marked experimental. With it off, atomir behaves exactly as its atomic-fact core always has.</p>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap foot">
+    <span>atomir &mdash; open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
+    <span><a class="textlink" href="https://github.com/bekiTil/atomir">GitHub</a> &middot; <a class="textlink" href="https://pypi.org/project/atomir/">PyPI</a> &middot; <a class="textlink" href="/docs">Docs</a> &middot; <a class="textlink" href="/research">Research</a></span>
+  </div>
+</footer>
+
+<script>
+  var hdr = document.getElementById('hdr');
+  var onScroll = function(){ hdr.classList.toggle('scrolled', window.scrollY > 8); };
+  onScroll(); addEventListener('scroll', onScroll, {passive:true});
+
+  // theme toggle (label shows the mode you'll switch TO)
+  var tog = document.getElementById('themetog');
+  var lbl = function(){ var t = document.documentElement.getAttribute('data-theme');
+    if (tog) tog.textContent = (t === 'light' ? 'Dark' : 'Light'); };
+  lbl();
+  if (tog) tog.addEventListener('click', function(){
+    var t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem('atomir-theme', t); }catch(e){}
+    lbl();
+  });
+
+  // copy-to-clipboard with state feedback
+  document.querySelectorAll('.copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text = btn.getAttribute('data-copy') || '';
+      var done = function(){ btn.textContent='COPIED'; btn.classList.add('done');
+        setTimeout(function(){ btn.textContent='COPY'; btn.classList.remove('done'); },1500); };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done).catch(done);
+      } else { done(); }
+    });
+  });
+
+  // live download count from shields (CORS-enabled); link works regardless
+  (function(){
+    var el = document.getElementById('dlnum'); if(!el) return;
+    fetch('https://img.shields.io/pepy/dt/atomir').then(function(r){return r.text();}).then(function(svg){
+      var m = svg.match(/downloads:\s*([\d.,]+\s?[kKmMbB]?)/);
+      if(m){ el.textContent = m[1].trim(); }
+    }).catch(function(){ /* leave the dash; the link still resolves to pepy */ });
+  })();
+
+  // staggered scroll reveals (disabled under reduced-motion / no JS)
+  var reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var reveals = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)){
+    reveals.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting){
+          var el = e.target;
+          var sibs = Array.prototype.slice.call(el.parentNode.querySelectorAll(':scope > .reveal'));
+          var i = Math.max(0, sibs.indexOf(el));
+          el.style.transitionDelay = Math.min(i * 70, 280) + 'ms';
+          el.classList.add('in'); io.unobserve(el);
+        }
+      });
+    }, {rootMargin:'0px 0px -8% 0px', threshold:0.12});
+    reveals.forEach(function(el){ io.observe(el); });
+  }
+</script>
+</body>
+</html>

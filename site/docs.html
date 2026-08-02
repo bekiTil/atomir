@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Docs — atomir</title>
+<meta name="description" content="Documentation for atomir: install, quickstart, configuration, the Python / HTTP / MCP surfaces, and honest limitations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Karla:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<script>(function(){try{var t=localStorage.getItem('atomir-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();</script>
+<style>
+  :root{
+    --bg:#000;--panel:#0A0A0A;--rule:#242424;--rule-soft:#171717;
+    --fg:#FFF;--fg-2:#B4B4B4;--fg-3:#6E6E6E;
+    --header-bg:rgba(0,0,0,.6);--header-bg-2:rgba(0,0,0,.72);
+    --sel-bg:#fff;--sel-fg:#000;--grain-op:.028;
+    --header-h:65px;--ease:cubic-bezier(.22,.61,.36,1);
+  }
+  :root[data-theme="light"]{
+    --bg:#FFF;--panel:#F6F6F6;--rule:#E4E4E4;--rule-soft:#EEE;
+    --fg:#000;--fg-2:#464646;--fg-3:#8C8C8C;
+    --header-bg:rgba(255,255,255,.62);--header-bg-2:rgba(255,255,255,.8);
+    --sel-bg:#000;--sel-fg:#fff;--grain-op:.02;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:"Karla",system-ui,sans-serif;font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased;
+    transition:background .3s var(--ease),color .3s var(--ease)}
+  a{color:inherit}
+  ::selection{background:var(--sel-bg);color:var(--sel-fg)}
+  :focus-visible{outline:1px solid var(--fg);outline-offset:3px;border-radius:2px}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  .grain{position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:var(--grain-op);
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  header{position:sticky;top:0;z-index:50;background:var(--header-bg);
+    border-bottom:1px solid transparent;transition:border-color .3s var(--ease),background .3s var(--ease)}
+  @supports (backdrop-filter:blur(1px)){header{backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}}
+  header.scrolled{border-bottom-color:var(--rule);background:var(--header-bg-2)}
+  .bar{display:flex;align-items:baseline;justify-content:space-between;padding:20px 0;gap:20px}
+  .mark{font-family:"JetBrains Mono",monospace;font-size:15px;letter-spacing:.14em;text-decoration:none}
+  .mark b{font-weight:500;border-bottom:1px solid var(--fg);padding-bottom:1px}
+  nav{display:flex;align-items:baseline;gap:24px;font-size:14px;color:var(--fg-2)}
+  nav a{text-decoration:none;padding-bottom:2px;border-bottom:1px solid transparent;
+    transition:color .2s var(--ease),border-color .2s var(--ease)}
+  nav a:hover,nav a.on{color:var(--fg);border-bottom-color:var(--fg)}
+  nav .arw{color:var(--fg-3)}
+  .themetog{background:none;border:0;color:var(--fg-3);font-family:"JetBrains Mono",monospace;
+    font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;padding:2px 0;transition:color .2s var(--ease)}
+  .themetog:hover{color:var(--fg)}
+
+  .doc{display:grid;grid-template-columns:196px 1fr;gap:56px;padding:52px 0 40px}
+  .side{position:sticky;top:calc(var(--header-h) + 24px);align-self:start}
+  .side .lbl{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--fg-3);margin:0 0 14px}
+  .side a{display:block;font-size:14px;color:var(--fg-3);text-decoration:none;padding:7px 0 7px 14px;
+    border-left:1px solid var(--rule);transition:color .2s var(--ease),border-color .2s var(--ease)}
+  .side a:hover{color:var(--fg-2)}
+  .side a.active{color:var(--fg);border-left-color:var(--fg)}
+  .mnav{display:none}
+
+  .content{min-width:0;max-width:720px}
+  h1{font-family:"Instrument Serif",Georgia,serif;font-weight:400;
+    font-size:clamp(38px,5vw,54px);line-height:1.04;letter-spacing:-.02em;margin:0 0 14px}
+  .sub{color:var(--fg-2);font-size:18px;margin:0 0 8px;max-width:62ch}
+  h2{font-family:"Instrument Serif",Georgia,serif;font-weight:400;font-size:clamp(25px,3.2vw,33px);
+    line-height:1.15;margin:0 0 14px;letter-spacing:-.015em}
+  .doc-sec{padding:44px 0;border-top:1px solid var(--rule);scroll-margin-top:calc(var(--header-h) + 18px)}
+  .doc-sec:first-of-type{border-top:0;padding-top:8px}
+  .eyebrow{font-family:"JetBrains Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--fg-3);margin:0 0 12px}
+  p{max-width:64ch;color:var(--fg-2)}
+  p strong{color:var(--fg);font-weight:500}
+  h3{font-size:16px;font-weight:600;margin:28px 0 8px;letter-spacing:-.005em;color:var(--fg)}
+  .textlink{text-decoration:none;border-bottom:1px solid var(--fg-3);color:var(--fg);transition:border-color .2s var(--ease)}
+  .textlink:hover{border-bottom-color:var(--fg)}
+  code.inl{font-family:"JetBrains Mono",monospace;font-size:.86em;background:var(--panel);
+    border:1px solid var(--rule);border-radius:3px;padding:1px 6px;color:var(--fg)}
+
+  .codeblock{position:relative;margin:18px 0 0}
+  pre{background:var(--panel);border:1px solid var(--rule);border-radius:3px;
+    padding:18px 20px;overflow-x:auto;font-family:"JetBrains Mono",monospace;
+    font-size:13.5px;line-height:1.8;margin:0;color:var(--fg)}
+  .c-dim{color:var(--fg-3)}
+  .copy{position:absolute;top:10px;right:10px;background:var(--bg);border:1px solid var(--rule);
+    color:var(--fg-3);font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.08em;
+    cursor:pointer;padding:4px 8px;border-radius:2px;transition:color .2s var(--ease),border-color .2s var(--ease)}
+  .copy:hover{color:var(--fg);border-color:var(--fg-3)}
+  .copy.done{color:var(--fg);border-color:var(--fg)}
+
+  table{width:100%;border-collapse:collapse;margin:18px 0 0;font-size:14px}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--rule-soft);vertical-align:top}
+  th{font-family:"JetBrains Mono",monospace;font-size:10.5px;letter-spacing:.1em;
+    text-transform:uppercase;color:var(--fg-3);font-weight:500;border-bottom-color:var(--rule)}
+  td code, td .k{font-family:"JetBrains Mono",monospace;font-size:12.5px;color:var(--fg)}
+  td.d{color:var(--fg-2)}
+  td .def{font-family:"JetBrains Mono",monospace;font-size:12px;color:var(--fg-3)}
+
+  ul.tight{margin:10px 0 0;padding-left:18px;color:var(--fg-2)}
+  ul.tight li{padding:4px 0;max-width:62ch}
+  ul.tight li code{font-family:"JetBrains Mono",monospace;font-size:.86em;color:var(--fg)}
+  .note{border-left:1px solid var(--rule);padding:2px 0 2px 16px;margin:18px 0 0;color:var(--fg-3);font-size:15px}
+
+  footer{border-top:1px solid var(--rule);padding:34px 0 60px;color:var(--fg-3);font-size:14px}
+  .foot{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+  @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} }
+  @media (max-width:900px){
+    .doc{grid-template-columns:1fr;gap:0;padding-top:32px}
+    .side{display:none}
+    .mnav{display:block;position:sticky;top:var(--header-h);z-index:40;background:var(--bg);
+      padding:14px 0;margin-bottom:8px;border-bottom:1px solid var(--rule)}
+    .mnav select{width:100%;background:var(--panel);color:var(--fg);border:1px solid var(--rule);
+      border-radius:3px;padding:11px 12px;font-family:"JetBrains Mono",monospace;font-size:13px}
+  }
+  @media (max-width:400px){ .wrap{padding:0 18px} nav{gap:14px;font-size:13px} pre{font-size:12.5px} }
+</style>
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header id="hdr">
+  <div class="wrap bar">
+    <a class="mark" href="/">atom<b>ir</b></a>
+    <nav>
+      <a href="/#how">How it works</a>
+      <a href="/#start">Quickstart</a>
+      <a href="/research">Research</a>
+      <a href="/docs" class="on">Docs</a>
+      <a href="https://github.com/bekiTil/atomir">GitHub <span class="arw">&#8599;</span></a>
+      <button id="themetog" class="themetog" type="button" aria-label="Toggle light or dark theme">Light</button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap doc">
+  <aside class="side">
+    <p class="lbl">Docs</p>
+    <a href="#install">Installation</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#config">Configuration</a>
+    <a href="#python">Python API</a>
+    <a href="#http">HTTP API</a>
+    <a href="#mcp">MCP</a>
+    <a href="#limits">Limitations</a>
+  </aside>
+
+  <main class="content">
+    <div class="mnav">
+      <select onchange="if(this.value)location.hash=this.value" aria-label="Jump to section">
+        <option value="">Jump to…</option>
+        <option value="#install">Installation</option>
+        <option value="#quickstart">Quickstart</option>
+        <option value="#config">Configuration</option>
+        <option value="#python">Python API</option>
+        <option value="#http">HTTP API</option>
+        <option value="#mcp">MCP</option>
+        <option value="#limits">Limitations</option>
+      </select>
+    </div>
+
+    <h1>Documentation</h1>
+    <p class="sub">atomir is atomic memory for agents: atomic facts on write, atomic sub-question decomposition on read, and an opt-in timeline layer for temporal questions. Vendor-neutral &mdash; the model, embedder, and store are each chosen at runtime by config.</p>
+
+    <section class="doc-sec" id="install">
+      <p class="eyebrow">01 — Installation</p>
+      <h2>Install</h2>
+      <p>Requires Python 3.11+. The core is dependency-light; provider SDKs aren't needed &mdash; OpenAI, Anthropic, Gemini, Azure, Groq, Jina, Voyage and Ollama are all reached over plain HTTP.</p>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre>pip install atomir</pre></div>
+      <h3>Optional extras</h3>
+      <p>Install only what a deployment uses:</p>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre>pip install "atomir[api]"        <span class="c-dim"># HTTP server (FastAPI + uvicorn)</span>
+pip install "atomir[mcp]"        <span class="c-dim"># MCP server</span>
+pip install "atomir[qdrant]"     <span class="c-dim"># Qdrant vector store</span>
+pip install "atomir[langchain]"  <span class="c-dim"># LangChain integration</span>
+pip install "atomir[langgraph]"  <span class="c-dim"># LangGraph nodes</span>
+pip install "atomir[all]"        <span class="c-dim"># everything above</span></pre></div>
+      <p class="note">With no configuration, atomir defaults to the <code class="inl">fake</code> model and embedder, so it runs offline with zero keys &mdash; useful for tests and a first look.</p>
+    </section>
+
+    <section class="doc-sec" id="quickstart">
+      <p class="eyebrow">02 — Quickstart</p>
+      <h2>Quickstart</h2>
+      <p>Build a memory service &mdash; backends are chosen entirely from the environment &mdash; then add, search, and answer.</p>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre><span class="c-dim">from</span> atomir.assembly <span class="c-dim">import</span> build_memory_service
+
+mem = build_memory_service()          <span class="c-dim"># providers from env; fake by default</span>
+
+mem.add(<span class="c-dim">"u1"</span>, <span class="c-dim">"I'm vegetarian and my manager is Dana."</span>)
+mem.search(<span class="c-dim">"u1"</span>, <span class="c-dim">"who should I email about my project?"</span>)
+mem.answer(<span class="c-dim">"u1"</span>, <span class="c-dim">"who is my manager?"</span>)   <span class="c-dim"># {answer, subquestions, results}</span></pre></div>
+      <h3>Timelines (opt-in)</h3>
+      <p>Set <code class="inl">EPISODIC_ENABLED=true</code> to turn on the timeline layer. A change is then recorded as a dated event rather than an overwrite, and <code class="inl">timeline()</code> returns the ordered history.</p>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre>mem.add(<span class="c-dim">"u1"</span>, <span class="c-dim">"I left Beta in November and joined Acme Corp."</span>)
+mem.timeline(<span class="c-dim">"u1"</span>, branch=<span class="c-dim">"works_at"</span>)   <span class="c-dim"># ordered events (when things changed)</span></pre></div>
+    </section>
+
+    <section class="doc-sec" id="config">
+      <p class="eyebrow">03 — Configuration</p>
+      <h2>Configuration</h2>
+      <p>All configuration is read from the environment (a local <code class="inl">.env</code> is loaded in development). There are three independent, swappable slots &mdash; <strong>model</strong>, <strong>embedder</strong>, and <strong>store</strong>.</p>
+
+      <h3>Providers</h3>
+      <table>
+        <thead><tr><th>Slot</th><th>Env var</th><th>Values</th></tr></thead>
+        <tbody>
+          <tr><td class="d">Model</td><td><span class="k">LLM_BACKEND</span></td><td class="d"><code>fake</code>, <code>openai</code>, <code>anthropic</code>, <code>gemini</code>, <code>azure_openai</code>, <code>groq</code>, <code>ollama</code></td></tr>
+          <tr><td class="d">Embedder</td><td><span class="k">EMBED_BACKEND</span></td><td class="d"><code>fake</code>, <code>openai</code>, <code>gemini</code>, <code>azure_openai</code>, <code>jina</code>, <code>voyage</code>, <code>ollama</code></td></tr>
+          <tr><td class="d">Store</td><td><span class="k">STORE_BACKEND</span></td><td class="d"><code>qdrant</code>, <code>json</code></td></tr>
+          <tr><td class="d">Timeline store</td><td><span class="k">EPISODIC_STORE</span></td><td class="d">unset (co-located JSON) or <code>sqlite</code></td></tr>
+        </tbody>
+      </table>
+
+      <h3>Environment variables</h3>
+      <table>
+        <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><span class="k">LLM_BACKEND</span></td><td><span class="def">fake</span></td><td class="d">Which model provider.</td></tr>
+          <tr><td><span class="k">LLM_API_KEY</span></td><td><span class="def">—</span></td><td class="d">Key for the model provider.</td></tr>
+          <tr><td><span class="k">MODEL</span></td><td><span class="def">llama-3.3-70b-versatile</span></td><td class="d">Model name.</td></tr>
+          <tr><td><span class="k">LLM_BASE_URL</span></td><td><span class="def">—</span></td><td class="d">Override endpoint (self-host / proxy / Ollama).</td></tr>
+          <tr><td><span class="k">LLM_TEMPERATURE</span></td><td><span class="def">—</span></td><td class="d">Unset = provider default; <code>0</code> = deterministic.</td></tr>
+          <tr><td><span class="k">EMBED_BACKEND</span></td><td><span class="def">fake</span></td><td class="d">Which embedder provider.</td></tr>
+          <tr><td><span class="k">EMBED_API_KEY</span></td><td><span class="def">—</span></td><td class="d">Key for the embedder.</td></tr>
+          <tr><td><span class="k">EMBED_DIM</span></td><td><span class="def">1024</span></td><td class="d">Embedding dimension (match your model).</td></tr>
+          <tr><td><span class="k">EMBED_BASE_URL</span></td><td><span class="def">—</span></td><td class="d">Override embedder endpoint.</td></tr>
+          <tr><td><span class="k">STORE_BACKEND</span></td><td><span class="def">qdrant</span></td><td class="d">Vector store backend.</td></tr>
+          <tr><td><span class="k">STORE_PATH</span></td><td><span class="def">./qdrant_data</span></td><td class="d">Local path; for the JSON store must end in <code>.json</code>.</td></tr>
+          <tr><td><span class="k">STORE_URL</span></td><td><span class="def">—</span></td><td class="d">Qdrant server URL (else embedded/local).</td></tr>
+          <tr><td><span class="k">COLLECTION</span></td><td><span class="def">atomir_memories</span></td><td class="d">Qdrant collection name.</td></tr>
+          <tr><td><span class="k">HYBRID_SEARCH</span></td><td><span class="def">true</span></td><td class="d">Fuse dense + BM25 on read.</td></tr>
+          <tr><td><span class="k">PLAN_CACHE</span></td><td><span class="def">true</span></td><td class="d">Cache query decompositions.</td></tr>
+          <tr><td><span class="k">RECONCILE_MIN_SIM</span></td><td><span class="def">0.5</span></td><td class="d">Write-side similarity gate for updates.</td></tr>
+          <tr><td><span class="k">EPISODIC_ENABLED</span></td><td><span class="def">false</span></td><td class="d">Turn on the timeline layer.</td></tr>
+          <tr><td><span class="k">EPISODIC_STORE</span></td><td><span class="def">—</span></td><td class="d">Unset = JSON; or <code>sqlite</code>.</td></tr>
+          <tr><td><span class="k">ONTOLOGY_PACK</span></td><td><span class="def">—</span></td><td class="d">Optional predicate seed (e.g. <code>personal</code>).</td></tr>
+          <tr><td><span class="k">ENTITY_V2</span></td><td><span class="def">false</span></td><td class="d">Embedding + LLM entity resolution.</td></tr>
+          <tr><td><span class="k">ENTITY_MATCH_MIN</span></td><td><span class="def">0.60</span></td><td class="d">Similarity floor for v2 entity match.</td></tr>
+          <tr><td><span class="k">CHECKPOINT_EVERY</span></td><td><span class="def">50</span></td><td class="d">Summarize a branch's oldest segment past N nodes.</td></tr>
+        </tbody>
+      </table>
+      <p class="note">The branch-matcher thresholds (<code class="inl">BRANCH_MATCH_AUTO</code>, <code class="inl">BRANCH_MATCH_GRAY_LOW</code>, <code class="inl">BRANCH_RESOLVE_FLOOR</code>, <code class="inl">BRANCH_RESOLVE_MARGIN</code>) default per-embedder from a calibrated table and are overridable by env. Leave them unset unless you're tuning.</p>
+
+      <h3>Example <code class="inl">.env</code></h3>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre>LLM_BACKEND=openai
+LLM_API_KEY=sk-...
+MODEL=gpt-4o
+
+EMBED_BACKEND=openai
+EMBED_API_KEY=sk-...
+EMBED_DIM=1536
+
+STORE_BACKEND=json
+STORE_PATH=./atomir.json      <span class="c-dim"># JSON store path must end in .json</span>
+
+EPISODIC_ENABLED=true         <span class="c-dim"># opt into timelines</span></pre></div>
+    </section>
+
+    <section class="doc-sec" id="python">
+      <p class="eyebrow">04 — Python</p>
+      <h2>Python API</h2>
+      <p>Everything hangs off a <code class="inl">MemoryService</code> built by <code class="inl">build_memory_service()</code>.</p>
+      <table>
+        <thead><tr><th>Method</th><th>Returns</th></tr></thead>
+        <tbody>
+          <tr><td><code>build_memory_service(settings=None)</code></td><td class="d">A <code class="inl">MemoryService</code> wired from env.</td></tr>
+          <tr><td><code>mem.add(user_id, text, recorded_at=None)</code></td><td class="d">Extract &amp; reconcile facts (and events if episodic). <code class="inl">recorded_at</code> is an ISO date for late-reported events.</td></tr>
+          <tr><td><code>mem.search(user_id, query, k=6, decompose=True)</code></td><td class="d"><code class="inl">{subquestions, results}</code></td></tr>
+          <tr><td><code>mem.answer(user_id, query, k=6, decompose=True)</code></td><td class="d"><code class="inl">{answer, subquestions, results}</code> &mdash; composed, grounded.</td></tr>
+          <tr><td><code>mem.timeline(user_id, entity=None, branch=None, since=None, until=None)</code></td><td class="d">Ordered events. Empty unless episodic is on.</td></tr>
+          <tr><td><code>mem.get_all(user_id)</code></td><td class="d">All current facts.</td></tr>
+          <tr><td><code>mem.forget(user_id, entity)</code></td><td class="d"><code class="inl">bool</code> — cascade-deletes an entity's facts, events, and source text. Needs episodic.</td></tr>
+          <tr><td><code>mem.delete(user_id, fact_id)</code></td><td class="d"><code class="inl">bool</code> — remove one fact.</td></tr>
+          <tr><td><code>mem.reset(user_id)</code></td><td class="d"><code class="inl">bool</code> — wipe a user.</td></tr>
+        </tbody>
+      </table>
+      <h3>LangChain / LangGraph</h3>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre><span class="c-dim">from</span> atomir.assembly <span class="c-dim">import</span> build_memory_service
+<span class="c-dim">from</span> atomir.integrations.langchain <span class="c-dim">import</span> AtomirMemory
+
+mem = AtomirMemory(build_memory_service(), user_id=<span class="c-dim">"user:1"</span>)
+
+<span class="c-dim"># LangGraph:</span>
+<span class="c-dim">from</span> atomir.integrations.langgraph <span class="c-dim">import</span> recall_node, remember_node</pre></div>
+    </section>
+
+    <section class="doc-sec" id="http">
+      <p class="eyebrow">05 — HTTP</p>
+      <h2>HTTP API</h2>
+      <p>Run the server (needs the <code class="inl">api</code> extra); it reads the same environment.</p>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre>pip install "atomir[api]"
+uvicorn atomir.api:app --port 8000</pre></div>
+      <table>
+        <thead><tr><th>Method &amp; path</th><th>Body / query</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /memories</code></td><td class="d"><code class="inl">{user_id, text}</code></td></tr>
+          <tr><td><code>POST /search</code></td><td class="d"><code class="inl">{user_id, query, k?}</code></td></tr>
+          <tr><td><code>POST /answer</code></td><td class="d"><code class="inl">{user_id, query, k?}</code></td></tr>
+          <tr><td><code>GET /memories</code></td><td class="d"><code class="inl">?user_id=</code></td></tr>
+          <tr><td><code>GET /timeline</code></td><td class="d"><code class="inl">?user_id=&amp;entity=&amp;branch=&amp;since=&amp;until=</code></td></tr>
+          <tr><td><code>POST /forget</code></td><td class="d"><code class="inl">{user_id, entity}</code></td></tr>
+          <tr><td><code>DELETE /memories/{fact_id}</code></td><td class="d"><code class="inl">?user_id=</code></td></tr>
+          <tr><td><code>DELETE /memories</code></td><td class="d"><code class="inl">?user_id=</code> (reset)</td></tr>
+          <tr><td><code>GET /health</code></td><td class="d">—</td></tr>
+        </tbody>
+      </table>
+      <h3>Python client</h3>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre><span class="c-dim">from</span> atomir.client <span class="c-dim">import</span> MemoryClient
+
+c = MemoryClient(<span class="c-dim">"http://localhost:8000"</span>)
+c.add(<span class="c-dim">"u1"</span>, <span class="c-dim">"I moved to Acme"</span>)
+c.answer(<span class="c-dim">"u1"</span>, <span class="c-dim">"where do I work?"</span>)</pre></div>
+    </section>
+
+    <section class="doc-sec" id="mcp">
+      <p class="eyebrow">06 — MCP</p>
+      <h2>MCP server</h2>
+      <p>Expose atomir as memory to Claude Desktop, Claude Code, or any MCP client.</p>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre>pip install "atomir[mcp]"
+atomir-mcp</pre></div>
+      <h3>Claude Desktop config</h3>
+      <div class="codeblock"><button class="copy" type="button">COPY</button><pre>{
+  <span class="c-dim">"mcpServers"</span>: {
+    <span class="c-dim">"atomir"</span>: {
+      <span class="c-dim">"command"</span>: <span class="c-dim">"atomir-mcp"</span>,
+      <span class="c-dim">"env"</span>: {
+        <span class="c-dim">"LLM_BACKEND"</span>: <span class="c-dim">"openai"</span>, <span class="c-dim">"LLM_API_KEY"</span>: <span class="c-dim">"sk-..."</span>,
+        <span class="c-dim">"EMBED_BACKEND"</span>: <span class="c-dim">"openai"</span>, <span class="c-dim">"EMBED_API_KEY"</span>: <span class="c-dim">"sk-..."</span>,
+        <span class="c-dim">"EMBED_DIM"</span>: <span class="c-dim">"1536"</span>,
+        <span class="c-dim">"STORE_BACKEND"</span>: <span class="c-dim">"json"</span>, <span class="c-dim">"STORE_PATH"</span>: <span class="c-dim">"./atomir.json"</span>,
+        <span class="c-dim">"EPISODIC_ENABLED"</span>: <span class="c-dim">"true"</span>
+      }
+    }
+  }
+}</pre></div>
+      <h3>Tools</h3>
+      <ul class="tight">
+        <li><code>remember(text)</code> — store a memory.</li>
+        <li><code>recall(query)</code> — retrieve relevant memories.</li>
+        <li><code>list_memories()</code> — all current facts.</li>
+        <li><code>forget(fact_id)</code> — delete one fact.</li>
+        <li><code>timeline(entity="", branch="")</code> — ordered events (needs episodic).</li>
+        <li><code>forget_about(entity)</code> — cascade-forget an entity (needs episodic).</li>
+      </ul>
+    </section>
+
+    <section class="doc-sec" id="limits">
+      <p class="eyebrow">07 — Limitations</p>
+      <h2>Limitations</h2>
+      <p>Written plainly, because knowing where a tool stops is part of using it.</p>
+      <ul class="tight">
+        <li><strong>Not a graph.</strong> Questions that hop across people's timelines (&ldquo;does anyone I know work at Acme?&rdquo;) need a graph database; atomir deliberately isn't one.</li>
+        <li><strong>JSON store is dev-scale.</strong> Fine for development and small deployments; use Qdrant (facts) or SQLite (timeline) as you grow.</li>
+        <li><strong>Timelines are experimental and opt-in.</strong> Off by default via <code>EPISODIC_ENABLED</code>; with it off, <code>add</code>/<code>search</code>/<code>answer</code> behave exactly as the atomic-fact core always has.</li>
+        <li><strong>Entity resolution is conservative.</strong> The default matches entities by exact alias and under-merges rather than risk a wrong merge; <code>ENTITY_V2</code> opts into embedding + LLM resolution.</li>
+        <li><strong>Branch-naming quality tracks model strength.</strong> The timeline layer emits knowledge-graph predicates; weaker models name them less consistently.</li>
+        <li><strong>Benchmarks are pending.</strong> Public results aren't published yet &mdash; see <a class="textlink" href="/research">Research</a>.</li>
+      </ul>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <div class="wrap foot">
+    <span>atomir &mdash; open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
+    <span><a class="textlink" href="https://github.com/bekiTil/atomir">GitHub</a> &middot; <a class="textlink" href="https://pypi.org/project/atomir/">PyPI</a> &middot; <a class="textlink" href="/research">Research</a> &middot; <a class="textlink" href="/">Home</a></span>
+  </div>
+</footer>
+
+<script>
+  var hdr = document.getElementById('hdr');
+  var onScroll = function(){ hdr.classList.toggle('scrolled', window.scrollY > 8); };
+  onScroll(); addEventListener('scroll', onScroll, {passive:true});
+
+  var tog = document.getElementById('themetog');
+  var lbl = function(){ var t = document.documentElement.getAttribute('data-theme');
+    if (tog) tog.textContent = (t === 'light' ? 'Dark' : 'Light'); };
+  lbl();
+  if (tog) tog.addEventListener('click', function(){
+    var t = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+    try{ localStorage.setItem('atomir-theme', t); }catch(e){}
+    lbl();
+  });
+
+  document.querySelectorAll('.codeblock .copy').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var pre = btn.parentNode.querySelector('pre');
+      var text = pre ? pre.innerText.replace(/COPY$/,'').trim() : '';
+      var done = function(){ btn.textContent='COPIED'; btn.classList.add('done');
+        setTimeout(function(){ btn.textContent='COPY'; btn.classList.remove('done'); },1500); };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done).catch(done);
+      } else { done(); }
+    });
+  });
+
+  var links = Array.prototype.slice.call(document.querySelectorAll('.side a'));
+  var map = {};
+  links.forEach(function(a){ map[a.getAttribute('href').slice(1)] = a; });
+  if('IntersectionObserver' in window){
+    var spy = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          links.forEach(function(a){ a.classList.remove('active'); });
+          if(map[e.target.id]) map[e.target.id].classList.add('active');
+        }
+      });
+    }, {rootMargin:'-20% 0px -70% 0px', threshold:0});
+    document.querySelectorAll('.doc-sec').forEach(function(s){ spy.observe(s); });
+  }
+</script>
+</body>
+</html>
