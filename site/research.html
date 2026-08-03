@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Research — atomir</title>
+<title>Research · atomir</title>
 <meta name="description" content="Working notes and benchmark plan for atomir, an open-source memory layer for AI agents. Results are pending, run on public harnesses, published either way.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -176,7 +176,7 @@
   </table>
 
   <div class="panel reveal">
-    <p>No numbers here yet, and that's on purpose. It's easy to build an evaluation that agrees with you &mdash; small samples, hand-picked scenarios, your own scoring &mdash; so a result nobody else can reproduce is worth less than no result at all. When the public benchmarks finish, whatever they say lands here, flattering or not.</p>
+    <p>No numbers here yet, and that's on purpose. It's easy to build an evaluation that agrees with you: small samples, hand-picked scenarios, your own scoring. So a result nobody else can reproduce is worth less than no result at all. When the public benchmarks finish, whatever they say lands here, flattering or not.</p>
   </div>
 </section>
 
@@ -190,14 +190,14 @@
   <div class="log reveal">
     <p class="date">JUL 2026</p>
     <h3>If we trust agents to reason, why not let them ask?</h3>
-    <p>Everyone optimises how memory is written. This one is about the read side: let the model decompose the question into the smaller ones it would need answered first, then retrieve for those. Tested on LoCoMo through an existing harness &mdash; strong on multi-hop, and it exposed exactly where the hole was.</p>
+    <p>Everyone optimises how memory is written. This one is about the read side: let the model decompose the question into the smaller ones it would need answered first, then retrieve for those. Tested on LoCoMo through an existing harness. Strong on multi-hop, and it exposed exactly where the hole was.</p>
     <a class="textlink" href="https://berekettilahun.substack.com/p/if-we-trust-agents-to-reason-why?r=2pok9i" target="_blank" rel="noopener">Read the essay &rarr;</a>
   </div>
 
   <div class="log reveal">
     <p class="date">JUL 2026</p>
     <h3>I told you where it broke. So I went and fixed it.</h3>
-    <p>The hole was time. Fact stores overwrite, so &ldquo;when did this change?&rdquo; has nothing to retrieve. This is the timeline layer: one page per relationship, a dated line per change, nothing erased &mdash; and the two-dates problem nobody warns you about.</p>
+    <p>The hole was time. Fact stores overwrite, so &ldquo;when did this change?&rdquo; has nothing to retrieve. This is the timeline layer: one page per relationship, a dated line per change, nothing erased, and the two-dates problem nobody warns you about.</p>
     <a class="textlink" href="https://berekettilahun.substack.com/p/i-told-you-where-it-broke-so-i-went?r=2pok9i" target="_blank" rel="noopener">Read the essay &rarr;</a>
   </div>
 </section>
@@ -210,7 +210,7 @@
   <h2 class="reveal">Rules I'm holding myself to.</h2>
   <ul class="rules reveal">
     <li><b>Someone else's harness</b>Benchmarks run on the existing public evaluation code, unmodified scoring and question sets.</li>
-    <li><b>Same stack everywhere</b>Every system compared &mdash; including the baselines &mdash; runs on identical models and embeddings, re-run by me rather than quoted from a paper.</li>
+    <li><b>Same stack everywhere</b>Every system compared, including the baselines, runs on identical models and embeddings, re-run by me rather than quoted from a paper.</li>
     <li><b>Unfavourable rows included</b>Every question category gets published, not the ones that look good.</li>
     <li><b>Reproducible or it doesn't count</b>The harness ships in the repo. If you can't re-run it, I shouldn't be claiming it.</li>
   </ul>
@@ -222,7 +222,7 @@
   <div class="tick">fund</div>
   <p class="eyebrow reveal">Fund the benchmarks</p>
   <h2 class="reveal">Reproducible results cost compute.</h2>
-  <p class="muted reveal">Running the full plan is not free &mdash; LoCoMo and LongMemEval in full, every baseline re-run on identical models and embeddings, is real API and GPU time. If you'd like the numbers to exist sooner, sponsoring a run is the most direct way to help. Email me and we'll sort it out; every sponsored run ships with its harness and raw output in the repo &mdash; favourable or not.</p>
+  <p class="muted reveal">Running the full plan is not free. LoCoMo and LongMemEval in full, every baseline re-run on identical models and embeddings, is real API and GPU time. If you'd like the numbers to exist sooner, sponsoring a run is the most direct way to help. Email me and we'll sort it out; every sponsored run ships with its harness and raw output in the repo, favourable or not.</p>
   <a class="cta" href="mailto:btilahun287@gmail.com?subject=Sponsoring%20an%20atomir%20benchmark%20run">Email me to sponsor a run &rarr;</a>
 </section>
 
@@ -233,14 +233,14 @@
   <p class="eyebrow reveal">What's next</p>
   <h2 class="reveal">Where this goes.</h2>
   <p class="muted reveal">Benchmark results first. After that: better handling of questions that slice across timelines rather than down one, and a scale story beyond the development store. If the numbers say the approach doesn't hold up, that gets written up too.</p>
-  <p class="muted reveal">If you want to poke at it, break it, or prove me wrong &mdash; <a class="textlink" href="https://github.com/bekiTil/atomir">the repo is open</a>.</p>
+  <p class="muted reveal">If you want to poke at it, break it, or prove me wrong, <a class="textlink" href="https://github.com/bekiTil/atomir">the repo is open</a>.</p>
 </section>
 
 </div>
 
 <footer>
   <div class="wrap foot">
-    <span>atomir &mdash; open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
+    <span>atomir is open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
     <span><a class="textlink" href="https://github.com/bekiTil/atomir">GitHub</a> &middot; <a class="textlink" href="https://pypi.org/project/atomir/">PyPI</a> &middot; <a class="textlink" href="/docs">Docs</a> &middot; <a class="textlink" href="/">Home</a></span>
   </div>
 </footer>

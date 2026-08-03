@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>atomir — atomic memory for AI agents</title>
+<title>atomir: atomic memory for AI agents</title>
 <meta name="description" content="Open-source memory for AI agents: atomic facts on write, sub-question decomposition on read, and an opt-in timeline for when things change. Vendor-neutral.">
-<meta property="og:title" content="atomir — atomic memory for AI agents">
+<meta property="og:title" content="atomir: atomic memory for AI agents">
 <meta property="og:description" content="Atomic facts on write, sub-question decomposition on read, and an opt-in timeline. Open-source, vendor-neutral memory for agents.">
 <meta property="og:type" content="website">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -207,7 +207,7 @@
 <section class="page">
   <div class="tick">intro</div>
   <h1 class="reveal">Agent memory that<br>knows <em>when</em>.</h1>
-  <p class="lede reveal">Most memory systems overwrite the past and flatten every question into one search. atomir is atomic on both ends — <strong>atomic facts in, atomic sub-questions out</strong> — and keeps a timeline when you need to know <strong>when</strong> it changed.</p>
+  <p class="lede reveal">Most memory systems overwrite the past and flatten every question into one search. atomir is atomic on both ends: <strong>atomic facts in, atomic sub-questions out</strong>. It keeps a timeline for when you need to know <strong>when</strong> it changed.</p>
 
   <div class="cmdrow reveal">
     <div class="install">
@@ -215,7 +215,7 @@
       <button class="copy" type="button" data-copy="pip install atomir" aria-label="Copy install command">COPY</button>
     </div>
     <a class="dl" href="https://pepy.tech/projects/atomir" target="_blank" rel="noopener" aria-label="Download count on PyPI">
-      <span class="n" id="dlnum">&mdash;</span><span>downloads</span>
+      <span class="n" id="dlnum">&middot;</span><span>downloads</span>
     </a>
   </div>
 
@@ -242,11 +242,11 @@
   <div class="tick on">how</div>
   <p class="eyebrow reveal">How it works</p>
   <h2 class="reveal">Atomic on both ends.</h2>
-  <p class="muted reveal" style="margin-bottom:34px">Memory that's atomic where it counts: atomic facts when you write, atomic sub-questions when you read &mdash; with an opt-in timeline for when things change.</p>
+  <p class="muted reveal" style="margin-bottom:34px">Memory that's atomic where it counts: atomic facts when you write, atomic sub-questions when you read, with an opt-in timeline for when things change.</p>
 
   <div class="entry reveal">
     <h4><span class="no">01</span> Atomic on write</h4>
-    <p>Each message is distilled into atomic facts and reconciled against what's already known &mdash; a change updates the existing fact instead of piling up a near-duplicate.</p>
+    <p>Each message is distilled into atomic facts and reconciled against what's already known. A change updates the existing fact instead of piling up a near-duplicate.</p>
   </div>
   <div class="entry reveal">
     <h4><span class="no">02</span> Sub-questions on read</h4>
@@ -254,7 +254,7 @@
   </div>
   <div class="entry reveal">
     <h4><span class="no">03</span> Timelines when it matters</h4>
-    <p>Turn on the timeline layer and a change becomes a dated line on a per-relationship page &mdash; so &ldquo;when did this change?&rdquo; has something to read instead of an overwrite. One layer, off by default.</p>
+    <p>Turn on the timeline layer and a change becomes a dated line on a per-relationship page, so &ldquo;when did this change?&rdquo; has something to read instead of an overwrite. One layer, off by default.</p>
   </div>
   <div class="entry reveal">
     <h4><span class="no">04</span> Traceable and forgettable</h4>
@@ -268,13 +268,13 @@
   <div class="tick">why</div>
   <p class="eyebrow reveal">Why the timeline layer exists</p>
   <h2 class="reveal">Some answers aren't ranked low. They're gone.</h2>
-  <p class="muted reveal">When a fact store learns something changed, it updates the fact. That's the sensible thing to do, and it quietly deletes your history. No amount of better retrieval brings it back, because retrieval isn't the part that failed &mdash; so for &ldquo;when&rdquo; questions, atomir keeps the change as an event instead of an overwrite.</p>
+  <p class="muted reveal">When a fact store learns something changed, it updates the fact. That's the sensible thing to do, and it quietly deletes your history. No amount of better retrieval brings it back, because retrieval isn't the part that failed. So for &ldquo;when&rdquo; questions, atomir keeps the change as an event instead of an overwrite.</p>
 <pre class="reveal"><span class="c-dim">mem.add(</span>"u", "I work at Beta"<span class="c-dim">)</span>
 <span class="c-dim">mem.add(</span>"u", "I moved to Acme"<span class="c-dim">)</span>
 
 <span class="c-dim">mem.answer(</span>"u", "When did I switch jobs?"<span class="c-dim">)</span>
 <span class="c-gone">&rarr; fact store:  "You work at Acme."</span>   <span class="c-dim"># answers a different question</span>
-&rarr; atomir:      "In 2025 &mdash; Beta before that, since 2023."</pre>
+&rarr; atomir:      "In 2025. Beta before that, since 2023."</pre>
 </section>
 
 <hr>
@@ -313,9 +313,9 @@ mem.timeline(<span class="c-dim">"u1"</span>, branch=<span class="c-dim">"works_
 
 <section class="page">
   <div class="tick">research</div>
-  <p class="eyebrow reveal">Benchmarks &mdash; in progress</p>
+  <p class="eyebrow reveal">Benchmarks in progress</p>
   <h2 class="reveal">No numbers here yet, on purpose.</h2>
-  <p class="muted reveal">I have results from my own scenarios and I don't trust them enough to print &mdash; it's easy to build an evaluation that agrees with you. I'm running the public benchmarks on the existing harness, with current systems as baselines on the same models, and publishing whatever comes out.</p>
+  <p class="muted reveal">I have results from my own scenarios and I don't trust them enough to print. It's easy to build an evaluation that agrees with you. I'm running the public benchmarks on the existing harness, with current systems as baselines on the same models, and publishing whatever comes out.</p>
   <a class="cta" href="/research">Follow the research &rarr;</a>
 </section>
 
@@ -326,7 +326,7 @@ mem.timeline(<span class="c-dim">"u1"</span>, branch=<span class="c-dim">"works_
   <p class="eyebrow reveal">Where it doesn't fit</p>
   <h2 class="reveal">Known edges.</h2>
   <div class="cols">
-    <p class="muted reveal">Questions that hop between people's timelines &mdash; &ldquo;does anyone I know work at Acme?&rdquo; &mdash; want a graph, and atomir isn't one. That's deliberate: the point is getting structured memory without running a graph database.</p>
+    <p class="muted reveal">Questions that hop between people's timelines, like &ldquo;does anyone I know work at Acme?&rdquo;, want a graph, and atomir isn't one. That's deliberate: the point is getting structured memory without running a graph database.</p>
     <p class="muted reveal">The JSON store is for development, not scale. The timeline layer is opt-in and marked experimental. With it off, atomir behaves exactly as its atomic-fact core always has.</p>
   </div>
 </section>
@@ -335,7 +335,7 @@ mem.timeline(<span class="c-dim">"u1"</span>, branch=<span class="c-dim">"works_
 
 <footer>
   <div class="wrap foot">
-    <span>atomir &mdash; open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
+    <span>atomir is open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
     <span><a class="textlink" href="https://github.com/bekiTil/atomir">GitHub</a> &middot; <a class="textlink" href="https://pypi.org/project/atomir/">PyPI</a> &middot; <a class="textlink" href="/docs">Docs</a> &middot; <a class="textlink" href="/research">Research</a></span>
   </div>
 </footer>

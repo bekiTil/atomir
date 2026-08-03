@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Docs — atomir</title>
+<title>Docs · atomir</title>
 <meta name="description" content="Documentation for atomir: install, quickstart, configuration, the Python / HTTP / MCP surfaces, and honest limitations.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -176,12 +176,12 @@
     </div>
 
     <h1>Documentation</h1>
-    <p class="sub">atomir is atomic memory for agents: atomic facts on write, atomic sub-question decomposition on read, and an opt-in timeline layer for temporal questions. Vendor-neutral &mdash; the model, embedder, and store are each chosen at runtime by config.</p>
+    <p class="sub">atomir is atomic memory for agents: atomic facts on write, atomic sub-question decomposition on read, and an opt-in timeline layer for temporal questions. Vendor-neutral: the model, embedder, and store are each chosen at runtime by config.</p>
 
     <section class="doc-sec" id="install">
-      <p class="eyebrow">01 — Installation</p>
+      <p class="eyebrow">01 · Installation</p>
       <h2>Install</h2>
-      <p>Requires Python 3.11+. The core is dependency-light; provider SDKs aren't needed &mdash; OpenAI, Anthropic, Gemini, Azure, Groq, Jina, Voyage and Ollama are all reached over plain HTTP.</p>
+      <p>Requires Python 3.11+. The core is dependency-light; provider SDKs aren't needed. OpenAI, Anthropic, Gemini, Azure, Groq, Jina, Voyage and Ollama are all reached over plain HTTP.</p>
       <div class="codeblock"><button class="copy" type="button">COPY</button><pre>pip install atomir</pre></div>
       <h3>Optional extras</h3>
       <p>Install only what a deployment uses:</p>
@@ -191,13 +191,13 @@ pip install "atomir[qdrant]"     <span class="c-dim"># Qdrant vector store</span
 pip install "atomir[langchain]"  <span class="c-dim"># LangChain integration</span>
 pip install "atomir[langgraph]"  <span class="c-dim"># LangGraph nodes</span>
 pip install "atomir[all]"        <span class="c-dim"># everything above</span></pre></div>
-      <p class="note">With no configuration, atomir defaults to the <code class="inl">fake</code> model and embedder, so it runs offline with zero keys &mdash; useful for tests and a first look.</p>
+      <p class="note">With no configuration, atomir defaults to the <code class="inl">fake</code> model and embedder, so it runs offline with zero keys, useful for tests and a first look.</p>
     </section>
 
     <section class="doc-sec" id="quickstart">
-      <p class="eyebrow">02 — Quickstart</p>
+      <p class="eyebrow">02 · Quickstart</p>
       <h2>Quickstart</h2>
-      <p>Build a memory service &mdash; backends are chosen entirely from the environment &mdash; then add, search, and answer.</p>
+      <p>Build a memory service (backends come entirely from the environment), then add, search, and answer.</p>
       <div class="codeblock"><button class="copy" type="button">COPY</button><pre><span class="c-dim">from</span> atomir.assembly <span class="c-dim">import</span> build_memory_service
 
 mem = build_memory_service()          <span class="c-dim"># providers from env; fake by default</span>
@@ -212,9 +212,9 @@ mem.timeline(<span class="c-dim">"u1"</span>, branch=<span class="c-dim">"works_
     </section>
 
     <section class="doc-sec" id="config">
-      <p class="eyebrow">03 — Configuration</p>
+      <p class="eyebrow">03 · Configuration</p>
       <h2>Configuration</h2>
-      <p>All configuration is read from the environment (a local <code class="inl">.env</code> is loaded in development). There are three independent, swappable slots &mdash; <strong>model</strong>, <strong>embedder</strong>, and <strong>store</strong>.</p>
+      <p>All configuration is read from the environment (a local <code class="inl">.env</code> is loaded in development). There are three independent, swappable slots: <strong>model</strong>, <strong>embedder</strong>, and <strong>store</strong>.</p>
 
       <h3>Providers</h3>
       <table>
@@ -232,24 +232,24 @@ mem.timeline(<span class="c-dim">"u1"</span>, branch=<span class="c-dim">"works_
         <thead><tr><th>Variable</th><th>Default</th><th>Purpose</th></tr></thead>
         <tbody>
           <tr><td><span class="k">LLM_BACKEND</span></td><td><span class="def">fake</span></td><td class="d">Which model provider.</td></tr>
-          <tr><td><span class="k">LLM_API_KEY</span></td><td><span class="def">—</span></td><td class="d">Key for the model provider.</td></tr>
+          <tr><td><span class="k">LLM_API_KEY</span></td><td><span class="def">–</span></td><td class="d">Key for the model provider.</td></tr>
           <tr><td><span class="k">MODEL</span></td><td><span class="def">llama-3.3-70b-versatile</span></td><td class="d">Model name.</td></tr>
-          <tr><td><span class="k">LLM_BASE_URL</span></td><td><span class="def">—</span></td><td class="d">Override endpoint (self-host / proxy / Ollama).</td></tr>
-          <tr><td><span class="k">LLM_TEMPERATURE</span></td><td><span class="def">—</span></td><td class="d">Unset = provider default; <code>0</code> = deterministic.</td></tr>
+          <tr><td><span class="k">LLM_BASE_URL</span></td><td><span class="def">–</span></td><td class="d">Override endpoint (self-host / proxy / Ollama).</td></tr>
+          <tr><td><span class="k">LLM_TEMPERATURE</span></td><td><span class="def">–</span></td><td class="d">Unset = provider default; <code>0</code> = deterministic.</td></tr>
           <tr><td><span class="k">EMBED_BACKEND</span></td><td><span class="def">fake</span></td><td class="d">Which embedder provider.</td></tr>
-          <tr><td><span class="k">EMBED_API_KEY</span></td><td><span class="def">—</span></td><td class="d">Key for the embedder.</td></tr>
+          <tr><td><span class="k">EMBED_API_KEY</span></td><td><span class="def">–</span></td><td class="d">Key for the embedder.</td></tr>
           <tr><td><span class="k">EMBED_DIM</span></td><td><span class="def">1024</span></td><td class="d">Embedding dimension (match your model).</td></tr>
-          <tr><td><span class="k">EMBED_BASE_URL</span></td><td><span class="def">—</span></td><td class="d">Override embedder endpoint.</td></tr>
+          <tr><td><span class="k">EMBED_BASE_URL</span></td><td><span class="def">–</span></td><td class="d">Override embedder endpoint.</td></tr>
           <tr><td><span class="k">STORE_BACKEND</span></td><td><span class="def">qdrant</span></td><td class="d">Vector store backend.</td></tr>
           <tr><td><span class="k">STORE_PATH</span></td><td><span class="def">./qdrant_data</span></td><td class="d">Local path; for the JSON store must end in <code>.json</code>.</td></tr>
-          <tr><td><span class="k">STORE_URL</span></td><td><span class="def">—</span></td><td class="d">Qdrant server URL (else embedded/local).</td></tr>
+          <tr><td><span class="k">STORE_URL</span></td><td><span class="def">–</span></td><td class="d">Qdrant server URL (else embedded/local).</td></tr>
           <tr><td><span class="k">COLLECTION</span></td><td><span class="def">atomir_memories</span></td><td class="d">Qdrant collection name.</td></tr>
           <tr><td><span class="k">HYBRID_SEARCH</span></td><td><span class="def">true</span></td><td class="d">Fuse dense + BM25 on read.</td></tr>
           <tr><td><span class="k">PLAN_CACHE</span></td><td><span class="def">true</span></td><td class="d">Cache query decompositions.</td></tr>
           <tr><td><span class="k">RECONCILE_MIN_SIM</span></td><td><span class="def">0.5</span></td><td class="d">Write-side similarity gate for updates.</td></tr>
           <tr><td><span class="k">EPISODIC_ENABLED</span></td><td><span class="def">false</span></td><td class="d">Turn on the timeline layer.</td></tr>
-          <tr><td><span class="k">EPISODIC_STORE</span></td><td><span class="def">—</span></td><td class="d">Unset = JSON; or <code>sqlite</code>.</td></tr>
-          <tr><td><span class="k">ONTOLOGY_PACK</span></td><td><span class="def">—</span></td><td class="d">Optional predicate seed (e.g. <code>personal</code>).</td></tr>
+          <tr><td><span class="k">EPISODIC_STORE</span></td><td><span class="def">–</span></td><td class="d">Unset = JSON; or <code>sqlite</code>.</td></tr>
+          <tr><td><span class="k">ONTOLOGY_PACK</span></td><td><span class="def">–</span></td><td class="d">Optional predicate seed (e.g. <code>personal</code>).</td></tr>
           <tr><td><span class="k">ENTITY_V2</span></td><td><span class="def">false</span></td><td class="d">Embedding + LLM entity resolution.</td></tr>
           <tr><td><span class="k">ENTITY_MATCH_MIN</span></td><td><span class="def">0.60</span></td><td class="d">Similarity floor for v2 entity match.</td></tr>
           <tr><td><span class="k">CHECKPOINT_EVERY</span></td><td><span class="def">50</span></td><td class="d">Summarize a branch's oldest segment past N nodes.</td></tr>
@@ -273,7 +273,7 @@ EPISODIC_ENABLED=true         <span class="c-dim"># opt into timelines</span></p
     </section>
 
     <section class="doc-sec" id="python">
-      <p class="eyebrow">04 — Python</p>
+      <p class="eyebrow">04 · Python</p>
       <h2>Python API</h2>
       <p>Everything hangs off a <code class="inl">MemoryService</code> built by <code class="inl">build_memory_service()</code>.</p>
       <table>
@@ -282,12 +282,12 @@ EPISODIC_ENABLED=true         <span class="c-dim"># opt into timelines</span></p
           <tr><td><code>build_memory_service(settings=None)</code></td><td class="d">A <code class="inl">MemoryService</code> wired from env.</td></tr>
           <tr><td><code>mem.add(user_id, text, recorded_at=None)</code></td><td class="d">Extract &amp; reconcile facts (and events if episodic). <code class="inl">recorded_at</code> is an ISO date for late-reported events.</td></tr>
           <tr><td><code>mem.search(user_id, query, k=6, decompose=True)</code></td><td class="d"><code class="inl">{subquestions, results}</code></td></tr>
-          <tr><td><code>mem.answer(user_id, query, k=6, decompose=True)</code></td><td class="d"><code class="inl">{answer, subquestions, results}</code> &mdash; composed, grounded.</td></tr>
+          <tr><td><code>mem.answer(user_id, query, k=6, decompose=True)</code></td><td class="d"><code class="inl">{answer, subquestions, results}</code>, composed and grounded.</td></tr>
           <tr><td><code>mem.timeline(user_id, entity=None, branch=None, since=None, until=None)</code></td><td class="d">Ordered events. Empty unless episodic is on.</td></tr>
           <tr><td><code>mem.get_all(user_id)</code></td><td class="d">All current facts.</td></tr>
-          <tr><td><code>mem.forget(user_id, entity)</code></td><td class="d"><code class="inl">bool</code> — cascade-deletes an entity's facts, events, and source text. Needs episodic.</td></tr>
-          <tr><td><code>mem.delete(user_id, fact_id)</code></td><td class="d"><code class="inl">bool</code> — remove one fact.</td></tr>
-          <tr><td><code>mem.reset(user_id)</code></td><td class="d"><code class="inl">bool</code> — wipe a user.</td></tr>
+          <tr><td><code>mem.forget(user_id, entity)</code></td><td class="d"><code class="inl">bool</code>, cascade-deletes an entity's facts, events, and source text. Needs episodic.</td></tr>
+          <tr><td><code>mem.delete(user_id, fact_id)</code></td><td class="d"><code class="inl">bool</code>, removes one fact.</td></tr>
+          <tr><td><code>mem.reset(user_id)</code></td><td class="d"><code class="inl">bool</code>, wipes a user.</td></tr>
         </tbody>
       </table>
       <h3>LangChain / LangGraph</h3>
@@ -301,7 +301,7 @@ mem = AtomirMemory(build_memory_service(), user_id=<span class="c-dim">"user:1"<
     </section>
 
     <section class="doc-sec" id="http">
-      <p class="eyebrow">05 — HTTP</p>
+      <p class="eyebrow">05 · HTTP</p>
       <h2>HTTP API</h2>
       <p>Run the server (needs the <code class="inl">api</code> extra); it reads the same environment.</p>
       <div class="codeblock"><button class="copy" type="button">COPY</button><pre>pip install "atomir[api]"
@@ -317,7 +317,7 @@ uvicorn atomir.api:app --port 8000</pre></div>
           <tr><td><code>POST /forget</code></td><td class="d"><code class="inl">{user_id, entity}</code></td></tr>
           <tr><td><code>DELETE /memories/{fact_id}</code></td><td class="d"><code class="inl">?user_id=</code></td></tr>
           <tr><td><code>DELETE /memories</code></td><td class="d"><code class="inl">?user_id=</code> (reset)</td></tr>
-          <tr><td><code>GET /health</code></td><td class="d">—</td></tr>
+          <tr><td><code>GET /health</code></td><td class="d">–</td></tr>
         </tbody>
       </table>
       <h3>Python client</h3>
@@ -329,7 +329,7 @@ c.answer(<span class="c-dim">"u1"</span>, <span class="c-dim">"where do I work?"
     </section>
 
     <section class="doc-sec" id="mcp">
-      <p class="eyebrow">06 — MCP</p>
+      <p class="eyebrow">06 · MCP</p>
       <h2>MCP server</h2>
       <p>Expose atomir as memory to Claude Desktop, Claude Code, or any MCP client.</p>
       <div class="codeblock"><button class="copy" type="button">COPY</button><pre>pip install "atomir[mcp]"
@@ -351,17 +351,17 @@ atomir-mcp</pre></div>
 }</pre></div>
       <h3>Tools</h3>
       <ul class="tight">
-        <li><code>remember(text)</code> — store a memory.</li>
-        <li><code>recall(query)</code> — retrieve relevant memories.</li>
-        <li><code>list_memories()</code> — all current facts.</li>
-        <li><code>forget(fact_id)</code> — delete one fact.</li>
-        <li><code>timeline(entity="", branch="")</code> — ordered events (needs episodic).</li>
-        <li><code>forget_about(entity)</code> — cascade-forget an entity (needs episodic).</li>
+        <li><code>remember(text)</code>: store a memory.</li>
+        <li><code>recall(query)</code>: retrieve relevant memories.</li>
+        <li><code>list_memories()</code>: all current facts.</li>
+        <li><code>forget(fact_id)</code>: delete one fact.</li>
+        <li><code>timeline(entity="", branch="")</code>: ordered events (needs episodic).</li>
+        <li><code>forget_about(entity)</code>: cascade-forget an entity (needs episodic).</li>
       </ul>
     </section>
 
     <section class="doc-sec" id="limits">
-      <p class="eyebrow">07 — Limitations</p>
+      <p class="eyebrow">07 · Limitations</p>
       <h2>Limitations</h2>
       <p>Written plainly, because knowing where a tool stops is part of using it.</p>
       <ul class="tight">
@@ -370,7 +370,7 @@ atomir-mcp</pre></div>
         <li><strong>Timelines are experimental and opt-in.</strong> Off by default via <code>EPISODIC_ENABLED</code>; with it off, <code>add</code>/<code>search</code>/<code>answer</code> behave exactly as the atomic-fact core always has.</li>
         <li><strong>Entity resolution is conservative.</strong> The default matches entities by exact alias and under-merges rather than risk a wrong merge; <code>ENTITY_V2</code> opts into embedding + LLM resolution.</li>
         <li><strong>Branch-naming quality tracks model strength.</strong> The timeline layer emits knowledge-graph predicates; weaker models name them less consistently.</li>
-        <li><strong>Benchmarks are pending.</strong> Public results aren't published yet &mdash; see <a class="textlink" href="/research">Research</a>.</li>
+        <li><strong>Benchmarks are pending.</strong> Public results aren't published yet. See <a class="textlink" href="/research">Research</a>.</li>
       </ul>
     </section>
   </main>
@@ -378,7 +378,7 @@ atomir-mcp</pre></div>
 
 <footer>
   <div class="wrap foot">
-    <span>atomir &mdash; open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
+    <span>atomir is open source, MIT. Built by <a class="textlink" href="https://github.com/bekiTil">Bereket Tilahun</a>.</span>
     <span><a class="textlink" href="https://github.com/bekiTil/atomir">GitHub</a> &middot; <a class="textlink" href="https://pypi.org/project/atomir/">PyPI</a> &middot; <a class="textlink" href="/research">Research</a> &middot; <a class="textlink" href="/">Home</a></span>
   </div>
 </footer>
