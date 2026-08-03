@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.8.3 — Temporal recall: surface the source clause
+
+**Improved**
+- When a message is distilled into a fact, the `(verb, value)` projection can drop
+  a salient detail the original clause carried ("18th birthday" reduced to
+  "hand-painted bowl"). For a **direct temporal lookup**, the read path now also
+  surfaces that stored source clause when the projection lost content, so "when did
+  X happen" questions can match it. Scoped to single temporal questions — multi-hop
+  and open-domain queries keep the clean projected text, so nothing else is affected.
+  Read-side only; no re-ingestion needed.
+
 ## 0.8.2 — Temporal read quality
 
 **Improved**

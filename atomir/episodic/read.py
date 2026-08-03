@@ -111,7 +111,16 @@ def _resolve_branch(episodic: EpisodicStore, user_id: str, entity_id: str,
     return None
 
 
-def _event_result(episodic: EpisodicStore, e: Event) -> dict:
+def _adds_signal(raw: str, stem: str) -> bool:
+    """True when the verbatim clause carries content words the (verb, value)
+    projection dropped — so appending it isn't just an echo. General (based on
+    novel word count), not tied to any question phrasing."""
+    have = {w.strip('.,"()\'') for w in stem.lower().split()}
+    novel = [w for w in raw.lower().split() if w.strip('.,"()\'') and w.strip('.,"()\'') not in have]
+    return len(novel) >= 3
+
+
+def _event_result(episodic: EpisodicStore, e: Event, append_raw: bool = False) -> dict:
     if e.kind == "checkpoint":
         text = f"(summary) {e.value}"
     else:
@@ -125,6 +134,14 @@ def _event_result(episodic: EpisodicStore, e: Event) -> dict:
         # questions can be answered — projection otherwise drops the date.
         date = (e.occurred_at or e.recorded_at or "")[:10]
         text = f"On {date}, {stem[0].lower()}{stem[1:]}" if date and stem else stem
+        # Anti-loss: the (verb, value) projection routinely drops salient nouns
+        # ("18th birthday" -> "hand-painted bowl"). Surface the source clause when
+        # it carries content the projection lost — but ONLY for a direct temporal
+        # lookup (append_raw). Multi-hop/open-domain queries compose several
+        # retrievals where the extra text adds noise, so they keep the clean text.
+        raw = (e.raw_text or "").strip()
+        if append_raw and raw and _adds_signal(raw, stem):
+            text = f'{text} ("{raw}")'
     return {
         "id": e.id, "type": TEMPORAL, "text": text, "kind": e.kind,
         "value": e.value, "polarity": e.polarity, "occurred_at": e.occurred_at,
@@ -143,25 +160,27 @@ def walk_chain(episodic: EpisodicStore, user_id: str, *, entity_id: str | None =
 
 
 def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int,
-                 order: str = "time") -> list[Event]:
+                 order: str = "time", append_raw: bool = False) -> list[Event]:
     """Top-k events by similarity to the question. order='relevance' keeps them in
     descending-relevance order (so the most on-topic event survives a tight top-k
     cutoff — the date in each text preserves chronology for the reader);
-    order='time' returns them chronologically."""
+    order='time' returns them chronologically. Ranks on the SAME text that will be
+    returned (append_raw), so a lossy event surfaces only when we'd also show it."""
     from atomir.episodic.registry import cosine
     qv = embedder.embed_query(question)
     scored = sorted(events, reverse=True,
-                    key=lambda e: cosine(qv, embedder.embed_passage(_event_result(None, e)["text"])))
+                    key=lambda e: cosine(qv, embedder.embed_passage(_event_result(None, e, append_raw)["text"])))
     top = scored[:k]
     return top if order == "relevance" else sorted(top, key=lambda e: e.order_key)
 
 
 def _events_by_similarity(episodic: EpisodicStore, embedder: Embedder, user_id: str,
-                          entity_id: str, question: str, k: int) -> list[Event]:
+                          entity_id: str, question: str, k: int,
+                          append_raw: bool = False) -> list[Event]:
     """Bounded fallback when no branch resolves: rank the entity's events by
     similarity to the question, top-k — far better than dumping the timeline."""
     return _rank_events(embedder, walk_chain(episodic, user_id, entity_id=entity_id),
-                        question, k, order="relevance")
+                        question, k, order="relevance", append_raw=append_raw)
 
 
 def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
@@ -175,6 +194,11 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
         plan = plan_typed(llm, query, branch_vocab(episodic.branches(user_id)))
     else:
         plan = [{"text": query, "type": SEMANTIC, "entity_hint": None, "branch_hint": None}]
+
+    # Surface lossy source clauses ONLY for a direct temporal lookup (one temporal
+    # sub-question). Multi-hop/open-domain queries decompose into several parts
+    # where the extra event text adds noise, so they keep the clean projection.
+    pure_temporal = len(plan) == 1 and plan[0]["type"] == TEMPORAL
 
     results: list[dict] = []
     seen_facts: set[str] = set()   # fact ids already represented (dedup)
@@ -211,19 +235,21 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                 # chronology); checkpoints stay pinned at the front.
                 cps = [e for e in events if e.kind == "checkpoint"]
                 rest = [e for e in events if e.kind != "checkpoint"]
-                events = cps + _rank_events(embedder, rest, sq["text"], k, order="relevance")
+                events = cps + _rank_events(embedder, rest, sq["text"], k,
+                                            order="relevance", append_raw=pure_temporal)
             elif entity_id:
                 # No branch resolved -> bounded semantic top-k, not the whole timeline.
                 fallback_used = True
                 mechanisms.append("fallback")
-                events = _events_by_similarity(episodic, embedder, user_id, entity_id, sq["text"], k)
+                events = _events_by_similarity(episodic, embedder, user_id, entity_id,
+                                               sq["text"], k, append_raw=pure_temporal)
             else:
                 mechanisms.append("none")
                 events = []
             for e in events:
                 if e.fact_id:
                     seen_facts.add(e.fact_id)
-                results.append(_event_result(episodic, e))
+                results.append(_event_result(episodic, e, append_raw=pure_temporal))
             routes.append({"type": TEMPORAL,
                            "route": "chain_walk" if branch is not None
                            else ("fallback" if entity_id else "none"),
