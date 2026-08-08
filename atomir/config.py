@@ -53,6 +53,8 @@ class Settings:
     llm_base_url: str = field(default_factory=lambda: _env("LLM_BASE_URL"))
     # Unset = the provider's own default. 0 = greedy/deterministic decoding.
     llm_temperature: str = field(default_factory=lambda: _env("LLM_TEMPERATURE"))
+    # Best-effort reproducibility for providers that honor it (e.g. OpenAI).
+    llm_seed: str = field(default_factory=lambda: _env("LLM_SEED"))
 
     # --- Embedder slot ----------------------------------------------------
     # Same neutrality: `jina` is the first example, but nothing here names it.
@@ -145,6 +147,7 @@ class Settings:
                 "temperature": (
                     float(self.llm_temperature) if self.llm_temperature else None
                 ),
+                "seed": (int(self.llm_seed) if self.llm_seed else None),
             },
         }
 
