@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.8.4 — Temporal retrieval: lexical fusion
+
+**Improved**
+- Temporal retrieval now combines embedding-based ranking with lexical (BM25) matching
+  by union, so temporal lookups also match on the exact dates and proper nouns that
+  embeddings alone can miss. The fused results include the embedding ranking's own top
+  results, so this supplements retrieval without displacing it. Read-side only — no
+  re-ingestion, no schema change, backward compatible with existing stores.
+
+**Added**
+- `LLM_SEED` — passed to providers that support it, for best-effort reproducible
+  generation.
+- `ATOMIR_EXTRACT_CACHE` (opt-in, default off) — caches extraction by message content so
+  re-ingesting the same conversation is reproducible. Set to a file path (or `1`).
+- Deterministic ordering of the branch registry fed to the extraction prompt.
+
+**Notes**
+- This is a retrieval change; it is not a claim about answer accuracy.
+- For reproducible ingests, set `LLM_TEMPERATURE=0` and/or `ATOMIR_EXTRACT_CACHE`.
+
 ## 0.8.3 — Temporal recall: surface the source clause
 
 **Improved**
