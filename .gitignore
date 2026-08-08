@@ -23,3 +23,13 @@ docs/
 eval/**/*RESULTS*.md
 eval/episodic/threshold_defaults.json
 *.log
+
+# Data, results, local caches — never commit
+atomir_store_*/
+results/
+.DS_Store
+**/.DS_Store
+.env*
+.vercel/
+eval/STATUS.md
+eval/detail_field_study/
