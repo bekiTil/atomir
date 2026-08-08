@@ -10,6 +10,39 @@ from atomir.episodic.models import HAPPENED, START
 from atomir.ontology import normalize_object_type
 from atomir.providers.llm_base import LLM
 
+import os as _os
+import json as _json
+import hashlib as _hashlib
+
+# Opt-in content-hash cache (ATOMIR_EXTRACT_CACHE). Keys extraction on the message
+# content (prompt_version, message_date, message_text), so re-ingesting the same
+# conversation returns identical extractions. Default OFF. Set to a file path (or
+# "1" for a default path) to enable.
+_PROMPT_VERSION = None
+_CACHE = None
+def _cache_path():
+    v = _os.environ.get("ATOMIR_EXTRACT_CACHE")
+    if not v:
+        return None
+    return "./atomir_extract_cache.json" if v == "1" else v
+def _cache_load():
+    global _CACHE
+    if _CACHE is None:
+        _CACHE = {}
+        p = _cache_path()
+        if p and _os.path.exists(p):
+            try:
+                _CACHE = _json.load(open(p))
+            except Exception:
+                _CACHE = {}
+    return _CACHE
+def _cache_key(text, recorded_at):
+    global _PROMPT_VERSION
+    if _PROMPT_VERSION is None:
+        _PROMPT_VERSION = _hashlib.sha1(_EXTRACT_SYSTEM.encode("utf-8")).hexdigest()[:8]
+    raw = f"{_PROMPT_VERSION}\x00{recorded_at}\x00{text}"
+    return _hashlib.sha1(raw.encode("utf-8")).hexdigest()
+
 _EXTRACT_SYSTEM = (
     "You extract EVENTS (things that happened or were stated) from a message for a "
     "personal-memory system. The message was written by the user, so the default "
@@ -54,6 +87,12 @@ def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "") ->
                    "existing verb_phrase/object_type when the event fits one, "
                    "rather than phrasing it differently:\n" + registry)
     user = f"MESSAGE DATE: {recorded_at}\nMESSAGE:\n{text}"
+    _ck = None
+    if _cache_path() is not None:
+        _cache = _cache_load()
+        _ck = _cache_key(text, recorded_at)
+        if _ck in _cache:
+            return _cache[_ck]  # reproducible: extraction served from cache
     result = llm.chat_json(system, user)
     events = result.get("events", []) if isinstance(result, dict) else []
     out: list[dict] = []
@@ -78,6 +117,12 @@ def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "") ->
             "corrects_hint": (str(e["corrects_hint"]).strip()
                               if e.get("corrects_hint") else None),
         })
+    if _ck is not None:
+        _cache = _cache_load()
+        _cache[_ck] = out
+        p = _cache_path()
+        if p:
+            _json.dump(_cache, open(p, "w"))
     return out
 
 
