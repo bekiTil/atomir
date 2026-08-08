@@ -159,19 +159,46 @@ def walk_chain(episodic: EpisodicStore, user_id: str, *, entity_id: str | None =
             if not e.superseded and (e.kind == "checkpoint" or not e.checkpointed)]
 
 
+_MONTHS = ["", "January", "February", "March", "April", "May", "June", "July",
+           "August", "September", "October", "November", "December"]
+
+
+def _lex_text(e: Event) -> str:
+    """Lexical field for BM25 on the temporal route: the returned event text plus the
+    verbatim source clause and the date rendered in prose (2023-05-07 / May 2023 /
+    2023). Dense cosine is blind to dates and proper nouns; BM25 over this matches
+    them. Used only for the fused ranking, never returned to the answerer."""
+    d = (e.occurred_at or "")[:10]
+    forms = [d]
+    if len(d) >= 7:
+        try:
+            forms += [f"{_MONTHS[int(d[5:7])]} {d[:4]}", d[:4]]
+        except (ValueError, IndexError):
+            pass
+    return " ".join([_event_result(None, e)["text"], (e.raw_text or ""), *forms])
+
+
 def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int,
                  order: str = "time", append_raw: bool = False) -> list[Event]:
-    """Top-k events by similarity to the question. order='relevance' keeps them in
-    descending-relevance order (so the most on-topic event survives a tight top-k
-    cutoff — the date in each text preserves chronology for the reader);
-    order='time' returns them chronologically. Ranks on the SAME text that will be
-    returned (append_raw), so a lossy event surfaces only when we'd also show it."""
+    """Top-k events for the question. order='time' returns them chronologically (for
+    timeline display). order='relevance' is the RETRIEVAL path: it fuses the dense
+    (embedding) ranking with a BM25 lexical ranking by UNION — take each ranker's
+    top-k, reorder by best (min) component rank, keep k. The union includes the dense
+    ranking's top-k, so lexical matches (dates and proper nouns the embedding misses)
+    supplement retrieval without displacing dense hits. Read-side only."""
     from atomir.episodic.registry import cosine
     qv = embedder.embed_query(question)
-    scored = sorted(events, reverse=True,
-                    key=lambda e: cosine(qv, embedder.embed_passage(_event_result(None, e, append_raw)["text"])))
-    top = scored[:k]
-    return top if order == "relevance" else sorted(top, key=lambda e: e.order_key)
+    dense = sorted(range(len(events)), reverse=True,
+                   key=lambda i: cosine(qv, embedder.embed_passage(
+                       _event_result(None, events[i], append_raw)["text"])))
+    if order != "relevance":
+        return sorted([events[i] for i in dense[:k]], key=lambda e: e.order_key)
+    scores = BM25([_lex_text(e) for e in events]).scores(question)
+    bm25 = sorted(range(len(events)), key=lambda i: scores[i], reverse=True)
+    dr = {i: r for r, i in enumerate(dense)}
+    br = {i: r for r, i in enumerate(bm25)}
+    fused = sorted(set(dense[:k]) | set(bm25[:k]), key=lambda i: min(dr[i], br[i]))
+    return [events[i] for i in fused[:k]]
 
 
 def _events_by_similarity(episodic: EpisodicStore, embedder: Embedder, user_id: str,
