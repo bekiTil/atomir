@@ -52,9 +52,14 @@ def normalize_object_type(raw: str) -> str:
 
 def format_registry(branches, cap: int = 40) -> str:
     """Render a user's existing branches as a reuse-first vocabulary for prompts
-    (canonical: description [object_type]). Capped so prompts stay bounded."""
+    (canonical: description [object_type]). Capped so prompts stay bounded.
+
+    Sorted by branch name so the prompt is DETERMINISTIC: without a stable order,
+    which entries survive the `cap` (and in what order) can vary between runs.
+    Sorting is language-level (no dataset dependence)."""
+    ordered = sorted(branches, key=lambda b: b.branch)
     lines = [f"- {b.branch}: {b.description} [{b.object_type or 'other'}]"
-             for b in branches[:cap]]
+             for b in ordered[:cap]]
     return "\n".join(lines)
 
 
