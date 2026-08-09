@@ -213,12 +213,14 @@ def _events_by_similarity(episodic: EpisodicStore, embedder: Embedder, user_id: 
 def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                     embedder: Embedder, user_id: str, query: str, *, k: int = 6,
                     decompose: bool = True, hybrid: bool = True,
-                    resolve_floor: float = 0.30, resolve_margin: float = 0.10) -> dict:
+                    resolve_floor: float = 0.30, resolve_margin: float = 0.10,
+                    planner_llm: LLM | None = None) -> dict:
     """Typed decomposition + routing + dedup. Returns {subquestions,
     subquestion_types, results}."""
     if decompose:
         from atomir.ontology import branch_vocab
-        plan = plan_typed(llm, query, branch_vocab(episodic.branches(user_id)))
+        plan = plan_typed(planner_llm or llm, query,
+                          branch_vocab(episodic.branches(user_id)))
     else:
         plan = [{"text": query, "type": SEMANTIC, "entity_hint": None, "branch_hint": None}]
 

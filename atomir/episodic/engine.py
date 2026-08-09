@@ -31,7 +31,8 @@ class EpisodicMemory:
                  embedder: Embedder, *, branch_auto: float, branch_gray_low: float,
                  entity_v2: bool = False, entity_match_min: float = 0.60,
                  checkpoint_every: int = 0, ontology_pack: str = "",
-                 resolve_floor: float = 0.30, resolve_margin: float = 0.10) -> None:
+                 resolve_floor: float = 0.30, resolve_margin: float = 0.10,
+                 planner_llm: LLM | None = None) -> None:
         self.facts = facts
         self.episodic = episodic
         self.checkpoint_every = checkpoint_every
@@ -42,6 +43,10 @@ class EpisodicMemory:
         # layer over the counter caches embeddings (write-time vectors reused by
         # the read path instead of re-embedding every event/branch per query).
         self.llm = CountingLLM(llm)
+        # Separate planner LLM (query typing) so extraction and planning can
+        # use different models. Defaults to the same LLM (backwards-compatible).
+        self.planner_llm = (CountingLLM(planner_llm) if planner_llm is not None
+                             and planner_llm is not llm else self.llm)
         self._emb = CountingEmbedder(embedder)
         self.embedder = MemoizingEmbedder(self._emb)
         self.entities = EntityResolver(episodic, self.embedder, self.llm,
@@ -50,7 +55,24 @@ class EpisodicMemory:
                                      auto=branch_auto, gray_low=branch_gray_low)
 
     def add(self, user_id: str, text: str, recorded_at: str | None = None) -> dict:
-        recorded_at = recorded_at or now_iso()
+        """Ingest one message.
+
+        `recorded_at` is the ISO-8601 message timestamp — WHEN the user said it.
+        For live/interactive use it may be omitted (defaults to `now()`). For
+        BATCH INGEST of dated conversations you MUST pass the message's real
+        timestamp, otherwise every event whose `occurred_at` couldn't be
+        resolved by the extractor will inherit `now()` as its date on the read
+        path (event text renders "On <today>, …" and the answerer parrots today
+        as the answer to "when did X happen?"). Bulk harnesses (see
+        `benchmarks/common/atomir_client.py::add`) do this correctly.
+        """
+        if recorded_at is None:
+            import sys as _sys
+            print("[atomir] WARNING: EpisodicMemory.add called without "
+                  "recorded_at — defaulting to now_iso(). For backdated / "
+                  "batch ingest, pass the message's real timestamp.",
+                  file=_sys.stderr)
+            recorded_at = now_iso()
         self.llm.reset()
         self.embedder.reset()
         # Optional pack: pre-seed the registry for a known domain on first write.
@@ -121,7 +143,8 @@ class EpisodicMemory:
         return episodic_search(self.facts, self.episodic, self.llm, self.embedder,
                                user_id, query, k=k, decompose=decompose, hybrid=hybrid,
                                resolve_floor=self.resolve_floor,
-                               resolve_margin=self.resolve_margin)
+                               resolve_margin=self.resolve_margin,
+                               planner_llm=self.planner_llm)
 
     def timeline(self, user_id: str, entity: str | None = None, branch: str | None = None,
                  since: str | None = None, until: str | None = None) -> list[dict]:
