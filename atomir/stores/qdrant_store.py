@@ -107,6 +107,7 @@ class QdrantMemoryStore(MemoryStore):
         fact_id: str,
         new_text: str,
         new_embedding: list[float],
+        metadata: dict | None = None,
     ) -> dict | None:
         pts = self.client.retrieve(
             collection_name=self.collection, ids=[fact_id], with_payload=True
@@ -114,9 +115,12 @@ class QdrantMemoryStore(MemoryStore):
         if not pts or pts[0].payload.get("user_id") != user_id:
             return None
         payload = dict(pts[0].payload)
-        payload["history"] = list(payload.get("history", [])) + [payload["text"]]
+        if payload.get("text") != new_text:
+            payload["history"] = list(payload.get("history", [])) + [payload["text"]]
         payload["text"] = new_text
         payload["updated_at"] = _now()
+        if metadata:
+            payload.setdefault("metadata", {}).update(metadata)
         # Re-upsert the SAME id with new vector + payload.
         self.client.upsert(
             collection_name=self.collection,

@@ -60,8 +60,13 @@ class MemoryStore(ABC):
         fact_id: str,
         new_text: str,
         new_embedding: list[float],
+        metadata: dict | None = None,
     ) -> dict | None:
         """Replace a fact's text/embedding, pushing the old text into `history`.
+
+        Optional `metadata` merges into the fact's existing metadata dict (used
+        by append-only projection to flip is_current on a demoted fact without
+        touching text/embedding).
 
         Returns the updated fact, or None if it does not exist for this user.
         """

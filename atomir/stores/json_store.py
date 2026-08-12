@@ -125,13 +125,17 @@ class JsonMemoryStore(MemoryStore):
         fact_id: str,
         new_text: str,
         new_embedding: list[float],
+        metadata: dict | None = None,
     ) -> dict | None:
         for fact in self._facts:
             if fact["id"] == fact_id and fact["user_id"] == user_id:
-                fact["history"].append(fact["text"])  # keep superseded text
+                if fact["text"] != new_text:
+                    fact["history"].append(fact["text"])  # keep superseded text
                 fact["text"] = new_text
                 fact["embedding"] = list(new_embedding)
                 fact["updated_at"] = _now()
+                if metadata:
+                    fact.setdefault("metadata", {}).update(metadata)
                 self._save()
                 return self._public(fact)
         return None
