@@ -59,7 +59,10 @@ def _build_episodic(s: Settings, facts, llm, embedder):
                           entity_v2=s.entity_v2, entity_match_min=s.entity_match_min,
                           checkpoint_every=s.checkpoint_every, ontology_pack=s.ontology_pack,
                           resolve_floor=s.branch_resolve_floor,
-                          resolve_margin=s.branch_resolve_margin)
+                          resolve_margin=s.branch_resolve_margin,
+                          temporal_expand_checkpoints=s.temporal_expand_checkpoints,
+                          append_only_facts=s.append_only_facts,
+                          checkpoint_source=s.checkpoint_source)
 
 
 def build_memory_service(s: Settings = default_settings) -> MemoryService:

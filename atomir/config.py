@@ -123,6 +123,24 @@ class Settings:
         default_factory=lambda: _threshold("BRANCH_RESOLVE_MARGIN", "margin"))
     # Empty = use STORE_BACKEND for episodic data too; or "sqlite".
     episodic_store: str = field(default_factory=lambda: _env("EPISODIC_STORE"))
+    # Checkpoint summary source. "raw" (default, shipped 0.8.4): summarise
+    # from event value strings. "structured": summarise from
+    # (value, qualifier, polarity, occurred_at) tuples so the resulting text
+    # carries the dates and qualifiers of the absorbed events and contains no
+    # information not already stored structurally.
+    checkpoint_source: str = field(
+        default_factory=lambda: _env("CHECKPOINT_SOURCE", "raw"))
+    # Temporal-route checkpoint expansion. "off" (default): temporal reads
+    # return checkpoints plus non-absorbed events. "on": each returned
+    # checkpoint is expanded into its absorbed_event_ids for ranking. Fact
+    # reads unaffected. Requires absorbed_event_ids on checkpoint records.
+    temporal_expand_checkpoints: str = field(
+        default_factory=lambda: _env("ATOMIR_TEMPORAL_EXPAND_CHECKPOINTS", "off"))
+    # Fact projection mode. "off" (default): single fact per branch, updated
+    # in place. "on": each write appends a new fact and demotes the prior one
+    # via metadata.is_current=False; branch keeps fact_history_ids.
+    append_only_facts: str = field(
+        default_factory=lambda: _env("ATOMIR_APPEND_ONLY_FACTS", "off"))
 
     # --- Vector store slot ------------------------------------------------
     # Selected by `store_backend` like the other two slots (no hardcoded vendor).

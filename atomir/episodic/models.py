@@ -69,6 +69,12 @@ class Event:
     kind: str = "event"         # "event" | "checkpoint"
     checkpointed: bool = False  # rolled into a checkpoint summary
     superseded: bool = False    # corrected by a later event (excluded from the chain)
+    absorbed_event_ids: list[str] = field(default_factory=list)
+    # On kind="checkpoint": ids of the events this checkpoint summarised. Empty
+    # on kind="event". Additive field — old stores load with []. Populated by
+    # `_maybe_checkpoint` on new writes; existing stores need `atomir backfill
+    # --absorbed` (or equivalent) to reconstruct. Used by the temporal read
+    # path to expand a well-ranked checkpoint into its member events.
 
     @property
     def order_key(self) -> str:
@@ -129,6 +135,16 @@ class BranchRecord:
     provisional_aliases: list[str] = field(default_factory=list)
     current_fact_id: str | None = None  # the branch's current projected fact
     current_value: str | None = None    # the current state's value (for end-matching)
+    # Cardinality decides how projection handles new events on this branch.
+    # "single" - one live fact, overwrite / append + mark old is_current=False
+    #            depending on ATOMIR_APPEND_ONLY_FACTS.
+    # "multi"  - many live facts, one per distinct value; never overwrite.
+    # "set"    - like multi but dedupe by normalised value.
+    # Defaults to "single" so existing stores load with 0.8.4 semantics.
+    cardinality: str = "single"
+    # Ordered list of superseded fact ids (append-only mode only). Empty in
+    # 0.8.4 mode. Additive - old stores load with [].
+    fact_history_ids: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)

@@ -32,13 +32,19 @@ class EpisodicMemory:
                  entity_v2: bool = False, entity_match_min: float = 0.60,
                  checkpoint_every: int = 0, ontology_pack: str = "",
                  resolve_floor: float = 0.30, resolve_margin: float = 0.10,
-                 planner_llm: LLM | None = None) -> None:
+                 planner_llm: LLM | None = None,
+                 temporal_expand_checkpoints: str = "off",
+                 append_only_facts: str = "off",
+                 checkpoint_source: str = "raw") -> None:
         self.facts = facts
         self.episodic = episodic
         self.checkpoint_every = checkpoint_every
         self.ontology_pack = ontology_pack
         self.resolve_floor = resolve_floor
         self.resolve_margin = resolve_margin
+        self.temporal_expand_checkpoints = temporal_expand_checkpoints
+        self.append_only_facts = append_only_facts
+        self.checkpoint_source = checkpoint_source
         # Counting proxies so add() can report real per-message cost; a memoizing
         # layer over the counter caches embeddings (write-time vectors reused by
         # the read path instead of re-embedding every event/branch per query).
@@ -118,7 +124,8 @@ class EpisodicMemory:
             self.episodic.append_event(event)  # write-ahead: event before fact
             if rev.get("corrects_hint"):
                 self._apply_correction(user_id, event, rev["corrects_hint"])
-            op = project_event(self.facts, self.episodic, self.embedder, user_id, event, branch)
+            op = project_event(self.facts, self.episodic, self.embedder, user_id, event, branch,
+                               append_only=(self.append_only_facts == "on"))
             operations.append(op)
             events_out.append(event.to_dict())
             if op.get("fact"):
@@ -144,7 +151,8 @@ class EpisodicMemory:
                                user_id, query, k=k, decompose=decompose, hybrid=hybrid,
                                resolve_floor=self.resolve_floor,
                                resolve_margin=self.resolve_margin,
-                               planner_llm=self.planner_llm)
+                               planner_llm=self.planner_llm,
+                               temporal_expand_checkpoints=self.temporal_expand_checkpoints)
 
     def timeline(self, user_id: str, entity: str | None = None, branch: str | None = None,
                  since: str | None = None, until: str | None = None) -> list[dict]:
@@ -366,14 +374,26 @@ class EpisodicMemory:
         segment = live[:-keep_tail]
         if not segment:
             return
-        lines = "; ".join(f"{e.polarity} {e.value}" for e in segment)
+        if self.checkpoint_source == "structured":
+            # Summarise from structured fields (value, qualifier, polarity, date)
+            # so the LLM summary is a projection of what's already stored, and
+            # the resulting text carries the events' dates and qualifiers.
+            lines = "; ".join(
+                f"{e.polarity} {e.value}"
+                + (f" ({e.qualifier})" if e.qualifier else "")
+                + (f" on {(e.occurred_at or e.recorded_at or '')[:10]}"
+                   if (e.occurred_at or e.recorded_at) else "")
+                for e in segment)
+        else:
+            lines = "; ".join(f"{e.polarity} {e.value}" for e in segment)
         res = self.llm.chat_json(_SUMMARY_SYSTEM, f"BRANCH {branch}:\n{lines}")
         summary = str((res or {}).get("summary") or lines)[:500]
         self.episodic.append_event(Event(
             id=new_id("ev"), user_id=user_id, entity_id=entity_id, branch=branch,
             value=summary, raw_text=summary, polarity="update", recorded_at=now_iso(),
             occurred_at=segment[-1].occurred_at or segment[-1].recorded_at,
-            kind="checkpoint", projected=True))
+            kind="checkpoint", projected=True,
+            absorbed_event_ids=[e.id for e in segment]))
         for e in segment:
             e.checkpointed = True
             self.episodic.update_event(e)
@@ -447,7 +467,8 @@ class EpisodicMemory:
             branch = self.episodic.get_branch(user_id, event.entity_id, event.branch)
             if branch is None:  # event logged before its branch persisted; skip
                 continue
-            op = project_event(self.facts, self.episodic, self.embedder, user_id, event, branch)
+            op = project_event(self.facts, self.episodic, self.embedder, user_id, event, branch,
+                               append_only=(self.append_only_facts == "on"))
             if op["decision"] != "NOOP" or op.get("reason") != "already projected":
                 projected += 1
         return projected

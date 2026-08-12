@@ -159,6 +159,29 @@ def walk_chain(episodic: EpisodicStore, user_id: str, *, entity_id: str | None =
             if not e.superseded and (e.kind == "checkpoint" or not e.checkpointed)]
 
 
+def _expand_checkpoint_members(episodic: EpisodicStore, user_id: str,
+                                pool: list[Event]) -> list[Event]:
+    """For each checkpoint in `pool`, load its absorbed_event_ids and add
+    those events to the pool for ranking. Deduplicates by event id.
+    Checkpoints themselves stay in the pool. Members whose ids are missing
+    (unbackfilled stores) or are superseded are skipped.
+    """
+    have = {e.id for e in pool}
+    add: list[Event] = []
+    for e in pool:
+        if e.kind != "checkpoint" or not getattr(e, "absorbed_event_ids", None):
+            continue
+        for mid in e.absorbed_event_ids:
+            if mid in have:
+                continue
+            m = episodic.get_event(user_id, mid)
+            if m is None or m.superseded:
+                continue
+            add.append(m)
+            have.add(mid)
+    return pool + add
+
+
 _MONTHS = ["", "January", "February", "March", "April", "May", "June", "July",
            "August", "September", "October", "November", "December"]
 
@@ -214,7 +237,8 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                     embedder: Embedder, user_id: str, query: str, *, k: int = 6,
                     decompose: bool = True, hybrid: bool = True,
                     resolve_floor: float = 0.30, resolve_margin: float = 0.10,
-                    planner_llm: LLM | None = None) -> dict:
+                    planner_llm: LLM | None = None,
+                    temporal_expand_checkpoints: str = "off") -> dict:
     """Typed decomposition + routing + dedup. Returns {subquestions,
     subquestion_types, results}."""
     if decompose:
@@ -262,16 +286,23 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                 # Rank the chain by relevance to the sub-question so the matching
                 # event surfaces into a tight top-k cutoff (dates in the text keep
                 # chronology); checkpoints stay pinned at the front.
+                if temporal_expand_checkpoints == "on":
+                    events = _expand_checkpoint_members(episodic, user_id, events)
                 cps = [e for e in events if e.kind == "checkpoint"]
                 rest = [e for e in events if e.kind != "checkpoint"]
                 events = cps + _rank_events(embedder, rest, sq["text"], k,
                                             order="relevance", append_raw=pure_temporal)
             elif entity_id:
-                # No branch resolved -> bounded semantic top-k, not the whole timeline.
+                # No branch resolved -> bounded semantic top-k over the entity's
+                # timeline. When checkpoint expansion is on, the pool includes
+                # absorbed members too so a chunk-summarised event can surface.
                 fallback_used = True
                 mechanisms.append("fallback")
-                events = _events_by_similarity(episodic, embedder, user_id, entity_id,
-                                               sq["text"], k, append_raw=pure_temporal)
+                pool = walk_chain(episodic, user_id, entity_id=entity_id)
+                if temporal_expand_checkpoints == "on":
+                    pool = _expand_checkpoint_members(episodic, user_id, pool)
+                events = _rank_events(embedder, pool, sq["text"], k,
+                                      order="relevance", append_raw=pure_temporal)
             else:
                 mechanisms.append("none")
                 events = []
@@ -284,8 +315,13 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                            else ("fallback" if entity_id else "none"),
                            "items": len(events)})
         else:  # current / semantic -> existing fact retrieval
+            # In append-only mode superseded facts stay in the store with
+            # is_current=False. Current-typed sub-Qs want the live state;
+            # semantic sub-Qs benefit from seeing historical facts too.
+            _only_current = sq["type"] != SEMANTIC
             found = atomic_search(facts, llm, embedder, user_id, sq["text"], k=k,
-                                  decompose=False, hybrid=hybrid)
+                                  decompose=False, hybrid=hybrid,
+                                  only_current=_only_current)
             n_facts = 0
             for r in found["results"]:
                 if r["id"] in seen_facts:  # already shown as a temporal event
