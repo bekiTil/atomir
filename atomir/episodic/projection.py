@@ -70,6 +70,7 @@ def project_event(
     user_id: str,
     event: Event,
     branch: BranchRecord,
+    append_only: bool = False,
 ) -> dict:
     """Project one event; return {decision, fact, event_id, fact_id}."""
     # Idempotency: already projected -> do nothing, keep replay safe.
@@ -99,7 +100,47 @@ def project_event(
     text = state_text(branch, event)
     embedding = embedder.embed_passage(text)
 
-    if current is not None:
+    if append_only:
+        # New fact record per write. Preserves the previous fact and its
+        # embedding by marking it is_current=False in metadata, pushing its
+        # id onto branch.fact_history_ids, and adding a new fact with
+        # is_current=True. Multi/set cardinalities skip the demotion so all
+        # values stay live at once.
+        card = getattr(branch, "cardinality", "single")
+        if current is not None and card == "single":
+            old_meta = dict(current.get("metadata") or {})
+            old_meta["is_current"] = False
+            facts.update(user_id, current["id"], current["text"],
+                          current.get("embedding") or embedding, metadata=old_meta)
+            branch.fact_history_ids = list(getattr(branch, "fact_history_ids", []) or []) + [current["id"]]
+        elif card in ("multi", "set") and current is not None:
+            # Dedupe check for `set`: skip if a live fact with matching value
+            # already exists on this branch.
+            if card == "set":
+                for fid in [branch.current_fact_id, *getattr(branch, "fact_history_ids", [])]:
+                    if not fid:
+                        continue
+                    existing = facts.get(user_id, fid)
+                    if existing and _values_match(
+                            (existing.get("metadata") or {}).get("value"),
+                            event.value):
+                        # Duplicate value under set: no-op, event is still logged
+                        event.projected = True
+                        event.fact_id = existing["id"]
+                        episodic.update_event(event)
+                        return {"decision": "NOOP", "reason": "set duplicate",
+                                "event_id": event.id, "fact": existing,
+                                "fact_id": existing["id"]}
+
+        fact = facts.add(user_id, text, embedding, metadata={
+            "episodic": True, "entity_id": event.entity_id,
+            "branch": event.branch, "value": event.value, "is_current": True})
+        # For single cardinality, the newly-created fact IS the current one.
+        # For multi/set, we still track the latest addition as `current_fact_id`
+        # but the older ones stay live (not demoted).
+        branch.current_fact_id = fact["id"]
+        decision = "ADD"
+    elif current is not None:
         fact = facts.update(user_id, branch.current_fact_id, text, embedding)
         decision = "UPDATE"
     else:

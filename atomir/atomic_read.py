@@ -151,6 +151,7 @@ def atomic_search(
     hybrid: bool = True,
     corpus_limit: int = 5000,
     cache_plans: bool = True,
+    only_current: bool = True,
 ) -> dict:
     """Retrieve facts for `query`, decomposing into sub-questions when useful.
 
@@ -213,16 +214,27 @@ def atomic_search(
             scored.sort(key=lambda t: t[1], reverse=True)
             rankings.append([corpus_ids[i] for i, _ in scored[:pool]])  # lexical
 
+    def _live(f: dict) -> bool:
+        """Under append_only_facts mode, facts marked is_current=False are
+        historical. When only_current is True, filter them out. When False,
+        pass them through (semantic route sees history)."""
+        if not only_current:
+            return True
+        meta = f.get("metadata") or {}
+        return meta.get("is_current") is not False  # missing key = live (0.8.4)
+
     if not hybrid:  # dense-only: rank by raw similarity, as before
         best: dict[str, dict] = {}
         for hits in dense_hits:
             for h in hits:
                 if h["id"] not in best or h["score"] > best[h["id"]]["score"]:
                     best[h["id"]] = h
-        results = sorted(best.values(), key=lambda h: h["score"], reverse=True)[:k]
+        results = sorted(best.values(), key=lambda h: h["score"], reverse=True)
+        results = [r for r in results if _live(r)][:k]
         return {"subquestions": subquestions, "results": results}
 
     fused = rrf(rankings)
-    top = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)[:k]
-    results = [{**by_id[fid], "score": score} for fid, score in top if fid in by_id]
+    top = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)
+    results = [{**by_id[fid], "score": score} for fid, score in top
+               if fid in by_id and _live(by_id[fid])][:k]
     return {"subquestions": subquestions, "results": results}
