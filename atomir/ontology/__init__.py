@@ -76,9 +76,8 @@ def apply_pack(store, user_id: str, entity_id: str, seeds) -> int:
     for canonical, template, obj_type, aliases, desc in seeds:
         if canonical in have:
             continue
-        # Ontology-pack seeds have no LLM at hand; cardinality is left as
-        # the BranchRecord default ("single"). If the user wants multi/set
-        # for a seeded branch, they can set ATOMIR_MULTI_BRANCHES=<name>.
+        # Seeded branches keep the default cardinality; override via
+        # ATOMIR_MULTI_BRANCHES if needed.
         store.add_branch(BranchRecord(
             branch=canonical, user_id=user_id, entity_id=entity_id,
             description=desc, state_template=template, object_type=obj_type,

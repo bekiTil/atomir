@@ -58,14 +58,9 @@ class MemoryService:
             speaker: str | None = None) -> dict:
         """Extract atomic facts from `text` and reconcile each into memory.
 
-        `recorded_at` (ISO-8601) sets the message time for the episodic layer so
-        events anchor correctly (e.g. dated benchmark sessions); ignored by the
-        classic fact path, which is timeless. Defaults to now.
-
-        `speaker` (episodic only): the name of the person authoring this
-        message. Set it for multi-speaker ingest (dialogues, meeting notes)
-        so events attribute to the speaker rather than the shared user bucket.
-        Ignored by the classic fact path."""
+        `recorded_at` (ISO-8601) sets the message time for the episodic layer;
+        ignored by the classic fact path. Defaults to now. `speaker` (episodic
+        only) sets the default event subject for multi-speaker ingest."""
         if self.episodic is not None:
             with self._locks.get(user_id):
                 return self.episodic.add(user_id, text, recorded_at=recorded_at,
@@ -95,12 +90,9 @@ class MemoryService:
     ) -> dict:
         """Retrieve facts for a query atomically: {subquestions, results}.
 
-        `include_raw_quotes` (episodic only): when True, each result dict is
+        `include_raw_quotes` (episodic only): when True, each result is
         enriched with `raw_quotes` — the raw source clauses of every event
-        that projected to that fact. Answerer applications should include
-        these in the LLM prompt so the model sees the speaker's original
-        wording, not just the normalized state text ("Jon engages in dance"
-        vs "Dancing makes me so happy")."""
+        that projected to that fact."""
         if self.episodic is not None:
             return self.episodic.search(user_id, query, k=k, decompose=decompose,
                                         hybrid=self.hybrid_search,

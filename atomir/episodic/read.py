@@ -128,9 +128,7 @@ def _event_result(episodic: EpisodicStore, e: Event, append_raw: bool = False) -
     else:
         verb = e.branch.replace("_", " ")
         neg = "no longer " if e.polarity == "end" else ""
-        # Prefer the subject entity's canonical name so multi-speaker stores
-        # render "Jon works at Acme" instead of the default "The user works at
-        # Acme". Falls back to "The user" if the entity can't be resolved.
+        # Subject name from the entity, else "The user".
         subj = "The user"
         try:
             ent = episodic.get_entity(e.user_id, e.entity_id)
@@ -216,8 +214,6 @@ def _lex_text(e: Event) -> str:
 
 _MONTH_LOOKUP = {n.lower(): i for i, n in enumerate(_MONTHS) if n}
 _MONTH_LOOKUP.update({n[:3].lower(): i for i, n in enumerate(_MONTHS) if n})
-# Regex bank for question-side date parsing. Captured groups feed
-# _date_hints, which normalises to ISO-8601 hints (full date or month).
 _RE_ISO = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
 _RE_DMY = re.compile(r"\b(\d{1,2})[\s,]+(january|february|march|april|may|june|"
                      r"july|august|september|october|november|december|"
@@ -234,9 +230,8 @@ _RE_MY  = re.compile(r"\b(january|february|march|april|may|june|"
 
 
 def _date_hints(question: str) -> list[tuple[str, str]]:
-    """Extract (kind, value) hints from a question string.
-    kind='full' -> ISO 'YYYY-MM-DD'; kind='month' -> 'YYYY-MM'.
-    Multiple hints ok; boost applies to any match."""
+    """Extract (kind, value) hints from a question. kind='full' -> ISO
+    YYYY-MM-DD; kind='month' -> YYYY-MM; kind='day' -> MM-DD."""
     hints: list[tuple[str, str]] = []
     q = question or ""
     for m in _RE_ISO.finditer(q):
@@ -270,9 +265,9 @@ def _date_hints(question: str) -> list[tuple[str, str]]:
 
 
 def _date_score(event: Event, hints: list[tuple[str, str]]) -> float:
-    """0.0-1.0 proximity score against extracted question dates. Exact day
-    match = 1.0, same month = 0.5, day-of-year match (any year) = 0.4;
-    otherwise 0.0. Uses occurred_at when set, else recorded_at."""
+    """Proximity score in [0, 1] against question date hints (see _date_hints).
+    Exact date match=1.0, same month=0.5, same day-of-year=0.4, else 0.0.
+    Uses occurred_at when set, else recorded_at."""
     if not hints:
         return 0.0
     iso = (event.occurred_at or event.recorded_at or "")[:10]
@@ -296,9 +291,9 @@ def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int,
     (embedding) ranking with a BM25 lexical ranking by UNION — take each ranker's
     top-k, reorder by best (min) component rank, keep k. The union includes the dense
     ranking's top-k, so lexical matches (dates and proper nouns the embedding misses)
-    supplement retrieval without displacing dense hits. When the question contains
-    an explicit date reference, a third date-proximity ranking is fused in so events
-    whose occurred_at matches the question's date come to the front. Read-side only."""
+    supplement retrieval without displacing dense hits. When the question
+    contains an explicit date, a date-proximity ranking is fused as a third
+    signal. Read-side only."""
     from atomir.episodic.registry import cosine
     qv = embedder.embed_query(question)
     dense = sorted(range(len(events)), reverse=True,
@@ -310,9 +305,7 @@ def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int,
     bm25 = sorted(range(len(events)), key=lambda i: scores[i], reverse=True)
     dr = {i: r for r, i in enumerate(dense)}
     br = {i: r for r, i in enumerate(bm25)}
-    # Date-proximity ranking (only when the question mentions a date). Sorts
-    # events by _date_score desc; only events with score > 0 enter the
-    # ranking, so no-date questions fall through untouched.
+    # Date-proximity ranking, only when the question mentions a date.
     hints = _date_hints(question)
     if hints:
         date_scored = [(i, _date_score(events[i], hints)) for i in range(len(events))]
@@ -368,11 +361,8 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
     for sq in plan:
         if sq["type"] == TEMPORAL:
             entity = episodic.entity_by_alias(user_id, sq["entity_hint"]) if sq["entity_hint"] else None
-            # Look for any person entity named in the sub-question text OR the
-            # original query, so "When did Jon start his business?" routes to
-            # Jon even when the planner rewrote the text (some planners
-            # normalise names like "Jon" -> "the user") or left entity_hint
-            # null. Longest-first prefers full names over substrings.
+            # Match any person entity named in the question text; longest
+            # canonical first to prefer full names over substrings.
             if entity is None:
                 _haystack = (sq["text"] + " " + query).lower()
                 for ent in sorted(
@@ -384,27 +374,20 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                             name.lower() in _haystack:
                         entity = ent
                         break
-            if entity is None:  # temporal questions default to the user
+            if entity is None:
                 entity = episodic.entity_by_alias(user_id, "the user")
             entity_id = entity.entity_id if entity else None
-            # Multi-speaker fallback: when no entity resolved OR the chosen
-            # entity has no events (e.g. the store attributes events to
-            # specific speakers and the default 'the user' bucket is empty),
-            # fall through to a union walk over every person entity so
-            # temporal questions still find something.
-            _person_ids = None
+            # If no entity resolved or the chosen one has no events, union
+            # over every person entity so multi-speaker stores still return.
+            _union_pool_ids = None
             _needs_union = (entity_id is None) or not any(
                 True for _ in episodic.events(user_id, entity_id=entity_id))
             if _needs_union:
                 _person_ids = [e.entity_id for e in episodic.entities(user_id)
                                 if getattr(e, "entity_type", "") == "person"]
                 if _person_ids:
-                    entity_id = None  # let the fallback branch merge across all speakers
+                    entity_id = None
                     _union_pool_ids = _person_ids
-                else:
-                    _union_pool_ids = None
-            else:
-                _union_pool_ids = None
             branch = (_resolve_branch(episodic, user_id, entity_id, sq["branch_hint"],
                                       embedder, resolve_floor, resolve_margin)
                       if entity_id else None)
@@ -432,12 +415,8 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                 events = cps + _rank_events(embedder, rest, sq["text"], k,
                                             order="relevance", append_raw=pure_temporal)
             elif entity_id or _union_pool_ids:
-                # No branch resolved -> bounded semantic top-k over the entity's
-                # timeline. When checkpoint expansion is on, the pool includes
-                # absorbed members too so a chunk-summarised event can surface.
-                # When entity_id is None but _union_pool_ids is set, we walk
-                # every person entity's chain and merge (multi-speaker default
-                # for questions with no clear entity target).
+                # Bounded semantic top-k over the entity timeline (or the
+                # union of person timelines when no entity resolved).
                 fallback_used = True
                 mechanisms.append("fallback")
                 _walk_ids = [entity_id] if entity_id else _union_pool_ids
@@ -487,12 +466,8 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
             routes.append({"type": sq["type"], "route": "facts",
                            "fact_hits": n_facts, "episode_hits": ep_hits})
 
-    # Optional enrichment: attach the raw source clauses of every event that
-    # projected to each fact result. Applications building an answerer prompt
-    # can then include the speaker's original wording (not just the
-    # normalised state text) so questions that hinge on rare adjectives or
-    # exact quotes ("makes me happy", "magical", "hard work paying off")
-    # become answerable.
+    # Attach `raw_quotes` per fact result (raw source clauses of the linked
+    # events) so callers can feed the speaker's original wording to an answerer.
     if include_raw_quotes and results:
         raw_by_fact: dict[str, list[str]] = {}
         try:

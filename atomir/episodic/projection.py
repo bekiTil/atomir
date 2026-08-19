@@ -43,13 +43,9 @@ def _clean_template(template: str) -> str:
 
 
 def state_text(branch: BranchRecord, event: Event, subject: str = "The user") -> str:
-    """Deterministic state phrasing for a projected fact. Negation
-    renders ONLY from the (cleaned) branch state_template, never the event verb.
-
-    `subject` (default "The user"): the sentence subject to use in the
-    projected fact text. On multi-speaker stores the caller looks up the
-    event's subject entity name (e.g. "Jon", "Gina") and passes it here so
-    the fact reads "Jon engages in dance" instead of "The user engages in dance"."""
+    """Deterministic state phrasing for a projected fact. Negation renders
+    ONLY from the (cleaned) branch state_template, never the event verb.
+    `subject` is the sentence subject; defaults to "The user"."""
     tmpl = _clean_template(branch.state_template)
     val = value_phrase(event.value, event.qualifier)
     if event.polarity == END:
@@ -102,16 +98,13 @@ def project_event(
         return {"decision": "NOOP", "reason": "historical end (not current value)",
                 "event_id": event.id, "fact": None}
 
-    # Prefer the subject entity's canonical name so multi-speaker stores render
-    # "Jon engages in dance" rather than the default "The user engages in dance".
+    # Subject name from the entity, else "The user". Capitalise only the
+    # first letter so proper nouns keep their casing.
     subj_name = "The user"
     try:
         subj = episodic.get_entity(user_id, event.entity_id)
         if subj is not None and subj.canonical_name:
             raw = subj.canonical_name.strip()
-            # Sentence-start capitalisation only on the first letter, so proper
-            # nouns keep their casing ("Jon", "Gina") and the legacy "the user"
-            # entity renders as "The user".
             subj_name = raw[:1].upper() + raw[1:] if raw else subj_name
     except Exception:
         pass

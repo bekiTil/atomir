@@ -53,9 +53,8 @@ _EXTRACT_SYSTEM = (
     "- subject_type: person | org | ...\n"
     "- verb_phrase: the predicate WITHOUT the object, e.g. 'joined', 'left', "
     "'reports to', 'lives in'\n"
-    "- verb_raw: the verb from the source clause, verbatim, before any "
-    "normalisation — e.g. 'reading', 'hiked', 'was employed by'. Kept for "
-    "verb-specific retrieval; may match verb_phrase or differ from it.\n"
+    "- verb_raw: the verb from the source clause, verbatim (no "
+    "normalisation) — e.g. 'reading', 'hiked', 'was employed by'.\n"
     "- value: the object/value ONLY, e.g. 'Acme Corp', 'Dana', 'Paris', 'friends'. "
     "Do NOT put a duration or age here.\n"
     "- qualifier: a time-QUANTITY that modifies the value — how long, how old, or "
@@ -81,12 +80,8 @@ def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "",
     """Return a list of raw event dicts. `recorded_at` (message time) lets the
     model resolve relative times into `occurred_at`; `registry` (the user's
     existing branches) is fed back so it reuses established predicates/verbs
-    rather than inventing variants.
-
-    `speaker` (optional): when set, the extractor defaults each event's
-    `subject` to that name instead of 'the user' — needed for multi-speaker
-    ingest so events attribute to the actual person, not the shared user
-    bucket. Omitted → legacy 'the user' behaviour."""
+    rather than inventing variants. `speaker` (optional) sets the default
+    subject for multi-speaker ingest; omit for the legacy 'the user' default."""
     text = (text or "").strip()
     if not text:
         return []

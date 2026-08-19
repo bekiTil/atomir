@@ -52,7 +52,7 @@ class ScriptedLLM(LLM):
             return "branch_judge"
         if "you name a new" in system.lower():
             return "branch_name"
-        if "classify a personal-memory predicate" in system:
+        if "Classify a predicate as SINGLE- or MULTI-valued" in system:
             return "cardinality"
         return "extract"
 

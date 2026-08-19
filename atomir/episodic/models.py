@@ -69,12 +69,7 @@ class Event:
     kind: str = "event"         # "event" | "checkpoint"
     checkpointed: bool = False  # rolled into a checkpoint summary
     superseded: bool = False    # corrected by a later event (excluded from the chain)
-    verb_raw: str = ""          # the extractor's `verb_raw` — the verb as the
-    # speaker said it, before any normalisation (e.g. "reading", "hiked"). Kept
-    # alongside `branch` because branch normalisation folds many verbs into one
-    # canonical predicate; the raw verb keeps the specific word available to
-    # lexical retrieval. Empty string when the extractor didn't provide one.
-    # Additive — old stores load with "".
+    verb_raw: str = ""          # verb as the speaker said it, pre-normalisation
     absorbed_event_ids: list[str] = field(default_factory=list)
     # On kind="checkpoint": ids of the events this checkpoint summarised. Empty
     # on kind="event". Additive field — old stores load with []. Populated by

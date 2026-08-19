@@ -3,10 +3,8 @@
 RRF fuses rankings by RANK, not score, so dense (cosine) and lexical (BM25)
 signals combine without needing a comparable scale.
 
-Tokens are stemmed with a compact Porter algorithm implementation so BM25
-matches morphological variants ("reading" ↔ "read", "offering" ↔ "offer",
-"visited" ↔ "visit"). Without stemming, verb-specific retrieval fails on
-every surface-form mismatch between the question and the stored text.
+Tokens are Porter-stemmed so BM25 matches morphological variants
+("reading" ↔ "read", "visited" ↔ "visit").
 """
 
 from __future__ import annotations
@@ -18,13 +16,8 @@ from collections import Counter
 _TOKEN = re.compile(r"[a-z0-9]+")
 
 
-# ---------------------------------------------------------------------------
-# Porter stemmer — compact stdlib-only implementation. Follows Martin Porter's
-# 1980 paper. Handles the common English suffix families (-ing, -ed, -s,
-# -ational, -ization, -ate, -er, -est, -ly, ...). Not exhaustive on irregular
-# forms; those slip through unstemmed, which is safe for BM25 (they just
-# don't match their inflected variants — the pre-stemmer behaviour).
-# Adapted from the classic algorithm; conservative on aggressive stripping.
+# Porter stemmer (Porter 1980). Compact, stdlib-only. Irregular forms slip
+# through unstemmed.
 
 _VOWELS = set("aeiou")
 

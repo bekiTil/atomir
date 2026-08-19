@@ -73,11 +73,8 @@ class EpisodicMemory:
         as the answer to "when did X happen?"). Bulk harnesses (see
         `benchmarks/common/atomir_client.py::add`) do this correctly.
 
-        `speaker` (optional): the name of the person who authored this message.
-        Multi-speaker transcripts (dialogues, meetings, chats) should pass this
-        so each event's subject defaults to the speaker instead of the shared
-        'the user' bucket — otherwise questions naming a specific person can't
-        route to their timeline. Omitted → legacy 'the user' behaviour.
+        `speaker` (optional) sets the default event subject for multi-speaker
+        ingest; omit for the legacy 'the user' default.
         """
         if recorded_at is None:
             import sys as _sys
