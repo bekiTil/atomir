@@ -126,10 +126,21 @@ def _event_result(episodic: EpisodicStore, e: Event, append_raw: bool = False) -
     else:
         verb = e.branch.replace("_", " ")
         neg = "no longer " if e.polarity == "end" else ""
+        # Prefer the subject entity's canonical name so multi-speaker stores
+        # render "Jon works at Acme" instead of the default "The user works at
+        # Acme". Falls back to "The user" if the entity can't be resolved.
+        subj = "The user"
+        try:
+            ent = episodic.get_entity(e.user_id, e.entity_id)
+            if ent is not None and ent.canonical_name:
+                raw = ent.canonical_name.strip()
+                subj = raw[:1].upper() + raw[1:] if raw else subj
+        except Exception:
+            pass
         # Weave the qualifier back into the object ("friends (4 years)") so
         # duration/age questions are answerable — the span lives only here on the
         # read path, never in `value`.
-        stem = f"The user {neg}{verb} {value_phrase(e.value, e.qualifier)}".strip()
+        stem = f"{subj} {neg}{verb} {value_phrase(e.value, e.qualifier)}".strip()
         # Stamp the event's date into the retrievable text so "when did X happen"
         # questions can be answered — projection otherwise drops the date.
         date = (e.occurred_at or e.recorded_at or "")[:10]
@@ -263,9 +274,43 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
     for sq in plan:
         if sq["type"] == TEMPORAL:
             entity = episodic.entity_by_alias(user_id, sq["entity_hint"]) if sq["entity_hint"] else None
-            if entity is None:  # temporal questions are about the user by default
+            # Look for any person entity named in the sub-question text OR the
+            # original query, so "When did Jon start his business?" routes to
+            # Jon even when the planner rewrote the text (some planners
+            # normalise names like "Jon" -> "the user") or left entity_hint
+            # null. Longest-first prefers full names over substrings.
+            if entity is None:
+                _haystack = (sq["text"] + " " + query).lower()
+                for ent in sorted(
+                        (e for e in episodic.entities(user_id)
+                         if getattr(e, "entity_type", "") == "person"),
+                        key=lambda x: -len(x.canonical_name or "")):
+                    name = (ent.canonical_name or "").strip()
+                    if name and name.lower() != "the user" and \
+                            name.lower() in _haystack:
+                        entity = ent
+                        break
+            if entity is None:  # temporal questions default to the user
                 entity = episodic.entity_by_alias(user_id, "the user")
             entity_id = entity.entity_id if entity else None
+            # Multi-speaker fallback: when no entity resolved OR the chosen
+            # entity has no events (e.g. the store attributes events to
+            # specific speakers and the default 'the user' bucket is empty),
+            # fall through to a union walk over every person entity so
+            # temporal questions still find something.
+            _person_ids = None
+            _needs_union = (entity_id is None) or not any(
+                True for _ in episodic.events(user_id, entity_id=entity_id))
+            if _needs_union:
+                _person_ids = [e.entity_id for e in episodic.entities(user_id)
+                                if getattr(e, "entity_type", "") == "person"]
+                if _person_ids:
+                    entity_id = None  # let the fallback branch merge across all speakers
+                    _union_pool_ids = _person_ids
+                else:
+                    _union_pool_ids = None
+            else:
+                _union_pool_ids = None
             branch = (_resolve_branch(episodic, user_id, entity_id, sq["branch_hint"],
                                       embedder, resolve_floor, resolve_margin)
                       if entity_id else None)
@@ -292,13 +337,19 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                 rest = [e for e in events if e.kind != "checkpoint"]
                 events = cps + _rank_events(embedder, rest, sq["text"], k,
                                             order="relevance", append_raw=pure_temporal)
-            elif entity_id:
+            elif entity_id or _union_pool_ids:
                 # No branch resolved -> bounded semantic top-k over the entity's
                 # timeline. When checkpoint expansion is on, the pool includes
                 # absorbed members too so a chunk-summarised event can surface.
+                # When entity_id is None but _union_pool_ids is set, we walk
+                # every person entity's chain and merge (multi-speaker default
+                # for questions with no clear entity target).
                 fallback_used = True
                 mechanisms.append("fallback")
-                pool = walk_chain(episodic, user_id, entity_id=entity_id)
+                _walk_ids = [entity_id] if entity_id else _union_pool_ids
+                pool = []
+                for _eid in _walk_ids:
+                    pool.extend(walk_chain(episodic, user_id, entity_id=_eid))
                 if temporal_expand_checkpoints == "on":
                     pool = _expand_checkpoint_members(episodic, user_id, pool)
                 events = _rank_events(embedder, pool, sq["text"], k,
@@ -321,7 +372,8 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
             _only_current = sq["type"] != SEMANTIC
             found = atomic_search(facts, llm, embedder, user_id, sq["text"], k=k,
                                   decompose=False, hybrid=hybrid,
-                                  only_current=_only_current)
+                                  only_current=_only_current,
+                                  episodic=episodic)
             n_facts = 0
             for r in found["results"]:
                 if r["id"] in seen_facts:  # already shown as a temporal event

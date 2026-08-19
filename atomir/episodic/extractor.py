@@ -36,11 +36,11 @@ def _cache_load():
             except Exception:
                 _CACHE = {}
     return _CACHE
-def _cache_key(text, recorded_at):
+def _cache_key(text, recorded_at, speaker=None):
     global _PROMPT_VERSION
     if _PROMPT_VERSION is None:
         _PROMPT_VERSION = _hashlib.sha1(_EXTRACT_SYSTEM.encode("utf-8")).hexdigest()[:8]
-    raw = f"{_PROMPT_VERSION}\x00{recorded_at}\x00{text}"
+    raw = f"{_PROMPT_VERSION}\x00{recorded_at}\x00{speaker or ''}\x00{text}"
     return _hashlib.sha1(raw.encode("utf-8")).hexdigest()
 
 _EXTRACT_SYSTEM = (
@@ -53,6 +53,9 @@ _EXTRACT_SYSTEM = (
     "- subject_type: person | org | ...\n"
     "- verb_phrase: the predicate WITHOUT the object, e.g. 'joined', 'left', "
     "'reports to', 'lives in'\n"
+    "- verb_raw: the verb from the source clause, verbatim, before any "
+    "normalisation — e.g. 'reading', 'hiked', 'was employed by'. Kept for "
+    "verb-specific retrieval; may match verb_phrase or differ from it.\n"
     "- value: the object/value ONLY, e.g. 'Acme Corp', 'Dana', 'Paris', 'friends'. "
     "Do NOT put a duration or age here.\n"
     "- qualifier: a time-QUANTITY that modifies the value — how long, how old, or "
@@ -73,15 +76,33 @@ _EXTRACT_SYSTEM = (
 )
 
 
-def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "") -> list[dict]:
+def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "",
+                    speaker: str | None = None) -> list[dict]:
     """Return a list of raw event dicts. `recorded_at` (message time) lets the
     model resolve relative times into `occurred_at`; `registry` (the user's
     existing branches) is fed back so it reuses established predicates/verbs
-    rather than inventing variants."""
+    rather than inventing variants.
+
+    `speaker` (optional): when set, the extractor defaults each event's
+    `subject` to that name instead of 'the user' — needed for multi-speaker
+    ingest so events attribute to the actual person, not the shared user
+    bucket. Omitted → legacy 'the user' behaviour."""
     text = (text or "").strip()
     if not text:
         return []
     system = _EXTRACT_SYSTEM
+    default_subject = "the user"
+    if speaker:
+        default_subject = speaker
+        system = system.replace(
+            "The message was written by the user, so the default "
+            "subject is 'the user'.",
+            f"The current speaker is {speaker}, so the default subject is "
+            f"'{speaker}'. Only route an event to a different subject when "
+            "the sentence names one explicitly."
+        ).replace(
+            "'the user' unless clearly someone else",
+            f"'{speaker}' unless clearly someone else")
     if registry:
         system += ("\n\nThe user already has these memory predicates — REUSE an "
                    "existing verb_phrase/object_type when the event fits one, "
@@ -90,7 +111,7 @@ def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "") ->
     _ck = None
     if _cache_path() is not None:
         _cache = _cache_load()
-        _ck = _cache_key(text, recorded_at)
+        _ck = _cache_key(text, recorded_at, speaker=speaker)
         if _ck in _cache:
             return _cache[_ck]  # reproducible: extraction served from cache
     result = llm.chat_json(system, user)
@@ -105,9 +126,10 @@ def extract_events(llm: LLM, text: str, recorded_at: str, registry: str = "") ->
             continue
         out.append({
             "raw_text": str(e.get("raw_text", "") or text).strip(),
-            "subject": str(e.get("subject", "the user")).strip() or "the user",
+            "subject": str(e.get("subject", default_subject)).strip() or default_subject,
             "subject_type": str(e.get("subject_type", "person")).strip() or "person",
             "verb_phrase": verb,
+            "verb_raw": str(e.get("verb_raw", "") or "").strip(),
             "value": value,
             "object_type": normalize_object_type(str(e.get("object_type", ""))),
             "qualifier": (str(e["qualifier"]).strip() if e.get("qualifier") else None),

@@ -60,7 +60,8 @@ class EpisodicMemory:
         self.matcher = BranchMatcher(episodic, self.llm, self.embedder,
                                      auto=branch_auto, gray_low=branch_gray_low)
 
-    def add(self, user_id: str, text: str, recorded_at: str | None = None) -> dict:
+    def add(self, user_id: str, text: str, recorded_at: str | None = None,
+            speaker: str | None = None) -> dict:
         """Ingest one message.
 
         `recorded_at` is the ISO-8601 message timestamp — WHEN the user said it.
@@ -71,6 +72,12 @@ class EpisodicMemory:
         path (event text renders "On <today>, …" and the answerer parrots today
         as the answer to "when did X happen?"). Bulk harnesses (see
         `benchmarks/common/atomir_client.py::add`) do this correctly.
+
+        `speaker` (optional): the name of the person who authored this message.
+        Multi-speaker transcripts (dialogues, meetings, chats) should pass this
+        so each event's subject defaults to the speaker instead of the shared
+        'the user' bucket — otherwise questions naming a specific person can't
+        route to their timeline. Omitted → legacy 'the user' behaviour.
         """
         if recorded_at is None:
             import sys as _sys
@@ -100,7 +107,8 @@ class EpisodicMemory:
         facts_out: list[dict] = []
         events_out: list[dict] = []
         touched: set[tuple[str, str]] = set()
-        for rev in extract_events(self.llm, text, recorded_at, registry=registry):
+        for rev in extract_events(self.llm, text, recorded_at, registry=registry,
+                                   speaker=speaker):
             subject, value = rev["subject"], rev["value"]
             subj_entity, _ = self.entities.resolve(user_id, subject, entity_type=rev["subject_type"])
             value_entity_id = None
@@ -120,6 +128,7 @@ class EpisodicMemory:
                 value_entity_id=value_entity_id, qualifier=rev.get("qualifier"),
                 occurred_at=rev["occurred_at"],
                 modality=rev["modality"], episode_id=episode.id, projected=False,
+                verb_raw=rev.get("verb_raw", "") or "",
             )
             self.episodic.append_event(event)  # write-ahead: event before fact
             if rev.get("corrects_hint"):

@@ -54,15 +54,22 @@ class MemoryService:
         # DECISION #5: simple per-user lock now, full transactions deferred.
         self._locks = KeyedLock()
 
-    def add(self, user_id: str, text: str, recorded_at: str | None = None) -> dict:
+    def add(self, user_id: str, text: str, recorded_at: str | None = None,
+            speaker: str | None = None) -> dict:
         """Extract atomic facts from `text` and reconcile each into memory.
 
         `recorded_at` (ISO-8601) sets the message time for the episodic layer so
         events anchor correctly (e.g. dated benchmark sessions); ignored by the
-        classic fact path, which is timeless. Defaults to now."""
+        classic fact path, which is timeless. Defaults to now.
+
+        `speaker` (episodic only): the name of the person authoring this
+        message. Set it for multi-speaker ingest (dialogues, meeting notes)
+        so events attribute to the speaker rather than the shared user bucket.
+        Ignored by the classic fact path."""
         if self.episodic is not None:
             with self._locks.get(user_id):
-                return self.episodic.add(user_id, text, recorded_at=recorded_at)
+                return self.episodic.add(user_id, text, recorded_at=recorded_at,
+                                          speaker=speaker)
         operations: list[dict] = []
         facts: list[dict] = []
         # Per-user lock so concurrent adds for the SAME user can't both read the
