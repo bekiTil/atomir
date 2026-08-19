@@ -10,6 +10,8 @@ Results are deduplicated by the event<->fact link before returning.
 
 from __future__ import annotations
 
+import re
+
 from atomir.atomic_read import atomic_search
 from atomir.ranking import BM25
 from atomir.episodic.models import Event, value_phrase
@@ -212,6 +214,81 @@ def _lex_text(e: Event) -> str:
     return " ".join([_event_result(None, e)["text"], (e.raw_text or ""), *forms])
 
 
+_MONTH_LOOKUP = {n.lower(): i for i, n in enumerate(_MONTHS) if n}
+_MONTH_LOOKUP.update({n[:3].lower(): i for i, n in enumerate(_MONTHS) if n})
+# Regex bank for question-side date parsing. Captured groups feed
+# _date_hints, which normalises to ISO-8601 hints (full date or month).
+_RE_ISO = re.compile(r"\b(\d{4}-\d{2}-\d{2})\b")
+_RE_DMY = re.compile(r"\b(\d{1,2})[\s,]+(january|february|march|april|may|june|"
+                     r"july|august|september|october|november|december|"
+                     r"jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)"
+                     r"[\s,]*(\d{4})?\b", re.IGNORECASE)
+_RE_MDY = re.compile(r"\b(january|february|march|april|may|june|"
+                     r"july|august|september|october|november|december|"
+                     r"jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)"
+                     r"[\s,]*(\d{1,2})[\s,]*(\d{4})?\b", re.IGNORECASE)
+_RE_MY  = re.compile(r"\b(january|february|march|april|may|june|"
+                     r"july|august|september|october|november|december|"
+                     r"jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)"
+                     r"[\s,]+(\d{4})\b", re.IGNORECASE)
+
+
+def _date_hints(question: str) -> list[tuple[str, str]]:
+    """Extract (kind, value) hints from a question string.
+    kind='full' -> ISO 'YYYY-MM-DD'; kind='month' -> 'YYYY-MM'.
+    Multiple hints ok; boost applies to any match."""
+    hints: list[tuple[str, str]] = []
+    q = question or ""
+    for m in _RE_ISO.finditer(q):
+        hints.append(("full", m.group(1)))
+    for m in _RE_DMY.finditer(q):
+        day, mon, year = m.group(1), m.group(2).lower(), m.group(3)
+        if year:
+            try:
+                hints.append(("full", f"{int(year):04d}-{_MONTH_LOOKUP[mon]:02d}-{int(day):02d}"))
+            except (KeyError, ValueError):
+                pass
+        else:
+            try:
+                hints.append(("day", f"{_MONTH_LOOKUP[mon]:02d}-{int(day):02d}"))
+            except (KeyError, ValueError):
+                pass
+    for m in _RE_MDY.finditer(q):
+        mon, day, year = m.group(1).lower(), m.group(2), m.group(3)
+        if year:
+            try:
+                hints.append(("full", f"{int(year):04d}-{_MONTH_LOOKUP[mon]:02d}-{int(day):02d}"))
+            except (KeyError, ValueError):
+                pass
+    for m in _RE_MY.finditer(q):
+        mon, year = m.group(1).lower(), m.group(2)
+        try:
+            hints.append(("month", f"{int(year):04d}-{_MONTH_LOOKUP[mon]:02d}"))
+        except (KeyError, ValueError):
+            pass
+    return hints
+
+
+def _date_score(event: Event, hints: list[tuple[str, str]]) -> float:
+    """0.0-1.0 proximity score against extracted question dates. Exact day
+    match = 1.0, same month = 0.5, day-of-year match (any year) = 0.4;
+    otherwise 0.0. Uses occurred_at when set, else recorded_at."""
+    if not hints:
+        return 0.0
+    iso = (event.occurred_at or event.recorded_at or "")[:10]
+    if len(iso) < 10:
+        return 0.0
+    best = 0.0
+    for kind, val in hints:
+        if kind == "full" and iso == val:
+            return 1.0
+        if kind == "month" and iso[:7] == val:
+            best = max(best, 0.5)
+        if kind == "day" and iso[5:10] == val:
+            best = max(best, 0.4)
+    return best
+
+
 def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int,
                  order: str = "time", append_raw: bool = False) -> list[Event]:
     """Top-k events for the question. order='time' returns them chronologically (for
@@ -219,7 +296,9 @@ def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int,
     (embedding) ranking with a BM25 lexical ranking by UNION — take each ranker's
     top-k, reorder by best (min) component rank, keep k. The union includes the dense
     ranking's top-k, so lexical matches (dates and proper nouns the embedding misses)
-    supplement retrieval without displacing dense hits. Read-side only."""
+    supplement retrieval without displacing dense hits. When the question contains
+    an explicit date reference, a third date-proximity ranking is fused in so events
+    whose occurred_at matches the question's date come to the front. Read-side only."""
     from atomir.episodic.registry import cosine
     qv = embedder.embed_query(question)
     dense = sorted(range(len(events)), reverse=True,
@@ -231,7 +310,21 @@ def _rank_events(embedder: Embedder, events: list[Event], question: str, k: int,
     bm25 = sorted(range(len(events)), key=lambda i: scores[i], reverse=True)
     dr = {i: r for r, i in enumerate(dense)}
     br = {i: r for r, i in enumerate(bm25)}
-    fused = sorted(set(dense[:k]) | set(bm25[:k]), key=lambda i: min(dr[i], br[i]))
+    # Date-proximity ranking (only when the question mentions a date). Sorts
+    # events by _date_score desc; only events with score > 0 enter the
+    # ranking, so no-date questions fall through untouched.
+    hints = _date_hints(question)
+    if hints:
+        date_scored = [(i, _date_score(events[i], hints)) for i in range(len(events))]
+        date_scored = [t for t in date_scored if t[1] > 0]
+        date_scored.sort(key=lambda t: t[1], reverse=True)
+        date_rank = [i for i, _ in date_scored]
+        dtr = {i: r for r, i in enumerate(date_rank)}
+        fused = sorted(set(dense[:k]) | set(bm25[:k]) | set(date_rank[:k]),
+                       key=lambda i: min(dr[i], br[i], dtr.get(i, 10**9)))
+    else:
+        fused = sorted(set(dense[:k]) | set(bm25[:k]),
+                       key=lambda i: min(dr[i], br[i]))
     return [events[i] for i in fused[:k]]
 
 
