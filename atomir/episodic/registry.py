@@ -304,10 +304,14 @@ class BranchMatcher:
             a = strip_names(a, names)
             if a and a.casefold() not in {x.casefold() for x in aliases}:
                 aliases.append(a)
+        from atomir.episodic.cardinality import classify_cardinality
         branch = BranchRecord(
             branch=canonical, user_id=user_id, entity_id=entity_id,
             description=description, state_template=state_template,
             object_type=object_type, aliases=aliases or [strip_names(verb_phrase, names)],
+            cardinality=classify_cardinality(self.llm, canonical,
+                                              description=description,
+                                              object_type=object_type),
         )
         # Guard: if the LLM named a predicate that already exists, reuse it.
         existing = self.store.get_branch(user_id, entity_id, canonical)

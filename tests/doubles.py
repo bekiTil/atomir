@@ -52,6 +52,8 @@ class ScriptedLLM(LLM):
             return "branch_judge"
         if "you name a new" in system.lower():
             return "branch_name"
+        if "classify a personal-memory predicate" in system:
+            return "cardinality"
         return "extract"
 
     def _pop(self, mode: str, system: str, user: str, default):
@@ -70,6 +72,7 @@ class ScriptedLLM(LLM):
             "entity_judge": {"same": False},
             "summary": {"summary": ""},
             "extract": {"facts": []},
+            "cardinality": {"cardinality": "single"},
         }
         return self._pop(mode, system, user, defaults[mode])
 
