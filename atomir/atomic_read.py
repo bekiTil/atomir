@@ -8,6 +8,7 @@ score kept). Vendor-neutral: imports ONLY the injected interfaces.
 
 from __future__ import annotations
 
+import os
 import re
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
@@ -152,6 +153,7 @@ def atomic_search(
     corpus_limit: int = 5000,
     cache_plans: bool = True,
     only_current: bool = True,
+    episodic=None,
 ) -> dict:
     """Retrieve facts for `query`, decomposing into sub-questions when useful.
 
@@ -184,13 +186,45 @@ def atomic_search(
     by_id: dict[str, dict] = {}
 
     # Lexical index over the user's facts, built once and scored per sub-question.
+    # When ATOMIR_BM25_INCLUDE_RAWTEXT is on and an episodic store is available,
+    # a SECOND BM25 index is built over each fact's per-event raw_text and fused
+    # into RRF as an extra rank list. Rare qualifier words the projection drops
+    # (adjectives, brand names, exact phrases) become matchable without diluting
+    # the primary fact-BM25 signal — the two indexes stay separate and both
+    # contribute rank votes. The dense embedding side is unchanged.
     bm25 = None
+    bm25_raw = None
     corpus_ids: list[str] = []
     if hybrid:
         corpus = store.all(user_id, limit=corpus_limit)
         if corpus:
             corpus_ids = [f["id"] for f in corpus]
             bm25 = BM25([f["text"] for f in corpus])
+            include_raw = (
+                episodic is not None
+                and os.environ.get("ATOMIR_BM25_INCLUDE_RAWTEXT", "off") == "on"
+            )
+            if include_raw:
+                raw_by_fact: dict[str, list[str]] = {}
+                try:
+                    for e in episodic.events(user_id):
+                        fid = getattr(e, "fact_id", None)
+                        if not fid:
+                            continue
+                        # Combine raw_text with the extractor's verb_raw so
+                        # the specific verb ("reading", "hiked") is BM25-
+                        # matchable even though branch normalisation folded it
+                        # into a canonical predicate.
+                        rt = (getattr(e, "raw_text", "") or "").strip()
+                        vr = (getattr(e, "verb_raw", "") or "").strip()
+                        combined = " ".join(x for x in (rt, vr) if x)
+                        if combined:
+                            raw_by_fact.setdefault(fid, []).append(combined)
+                except Exception:
+                    raw_by_fact = {}
+                raw_docs = [" ".join(raw_by_fact.get(f["id"], [])) for f in corpus]
+                if any(raw_docs):
+                    bm25_raw = BM25(raw_docs)
             by_id.update({f["id"]: f for f in corpus})
 
     # Independent per sub-question -> retrieve concurrently; fusion is order-free.
@@ -213,6 +247,14 @@ def atomic_search(
             scored = [(i, s) for i, s in enumerate(bm25.scores(sq)) if s > 0]
             scored.sort(key=lambda t: t[1], reverse=True)
             rankings.append([corpus_ids[i] for i, _ in scored[:pool]])  # lexical
+        if bm25_raw is not None:
+            # Third RRF signal: BM25 over per-fact raw_text (the actual clauses
+            # the user said, kept verbatim on each event). Fuses in as a rank
+            # list — every candidate this ranker surfaces adds a small vote to
+            # RRF without altering the fact-BM25 or dense rankings.
+            scored_raw = [(i, s) for i, s in enumerate(bm25_raw.scores(sq)) if s > 0]
+            scored_raw.sort(key=lambda t: t[1], reverse=True)
+            rankings.append([corpus_ids[i] for i, _ in scored_raw[:pool]])  # raw-text
 
     def _live(f: dict) -> bool:
         """Under append_only_facts mode, facts marked is_current=False are
