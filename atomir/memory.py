@@ -90,12 +90,21 @@ class MemoryService:
         return {"operations": operations, "facts": facts}
 
     def search(
-        self, user_id: str, query: str, k: int = 6, decompose: bool = True
+        self, user_id: str, query: str, k: int = 6, decompose: bool = True,
+        include_raw_quotes: bool = False,
     ) -> dict:
-        """Retrieve facts for a query atomically: {subquestions, results}."""
+        """Retrieve facts for a query atomically: {subquestions, results}.
+
+        `include_raw_quotes` (episodic only): when True, each result dict is
+        enriched with `raw_quotes` — the raw source clauses of every event
+        that projected to that fact. Answerer applications should include
+        these in the LLM prompt so the model sees the speaker's original
+        wording, not just the normalized state text ("Jon engages in dance"
+        vs "Dancing makes me so happy")."""
         if self.episodic is not None:
             return self.episodic.search(user_id, query, k=k, decompose=decompose,
-                                        hybrid=self.hybrid_search)
+                                        hybrid=self.hybrid_search,
+                                        include_raw_quotes=include_raw_quotes)
         return atomic_search(
             self.store, self.llm, self.embedder, user_id, query, k=k,
             decompose=decompose, hybrid=self.hybrid_search,

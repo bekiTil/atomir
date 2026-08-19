@@ -249,7 +249,8 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                     decompose: bool = True, hybrid: bool = True,
                     resolve_floor: float = 0.30, resolve_margin: float = 0.10,
                     planner_llm: LLM | None = None,
-                    temporal_expand_checkpoints: str = "off") -> dict:
+                    temporal_expand_checkpoints: str = "off",
+                    include_raw_quotes: bool = False) -> dict:
     """Typed decomposition + routing + dedup. Returns {subquestions,
     subquestion_types, results}."""
     if decompose:
@@ -392,6 +393,27 @@ def episodic_search(facts: MemoryStore, episodic: EpisodicStore, llm: LLM,
                     ep_hits += 1
             routes.append({"type": sq["type"], "route": "facts",
                            "fact_hits": n_facts, "episode_hits": ep_hits})
+
+    # Optional enrichment: attach the raw source clauses of every event that
+    # projected to each fact result. Applications building an answerer prompt
+    # can then include the speaker's original wording (not just the
+    # normalised state text) so questions that hinge on rare adjectives or
+    # exact quotes ("makes me happy", "magical", "hard work paying off")
+    # become answerable.
+    if include_raw_quotes and results:
+        raw_by_fact: dict[str, list[str]] = {}
+        try:
+            for _e in episodic.events(user_id):
+                _fid = getattr(_e, "fact_id", None)
+                _rt = (getattr(_e, "raw_text", "") or "").strip()
+                if _fid and _rt:
+                    raw_by_fact.setdefault(_fid, []).append(_rt)
+        except Exception:
+            raw_by_fact = {}
+        for r in results:
+            quotes = raw_by_fact.get(r.get("id", ""), [])
+            if quotes:
+                r["raw_quotes"] = quotes
 
     return {
         "subquestions": [sq["text"] for sq in plan],

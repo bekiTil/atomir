@@ -154,14 +154,15 @@ class EpisodicMemory:
                 }}
 
     def search(self, user_id: str, query: str, k: int = 6, decompose: bool = True,
-               hybrid: bool = True) -> dict:
+               hybrid: bool = True, include_raw_quotes: bool = False) -> dict:
         """Typed decomposition + routing + dedup."""
         return episodic_search(self.facts, self.episodic, self.llm, self.embedder,
                                user_id, query, k=k, decompose=decompose, hybrid=hybrid,
                                resolve_floor=self.resolve_floor,
                                resolve_margin=self.resolve_margin,
                                planner_llm=self.planner_llm,
-                               temporal_expand_checkpoints=self.temporal_expand_checkpoints)
+                               temporal_expand_checkpoints=self.temporal_expand_checkpoints,
+                               include_raw_quotes=include_raw_quotes)
 
     def timeline(self, user_id: str, entity: str | None = None, branch: str | None = None,
                  since: str | None = None, until: str | None = None) -> list[dict]:
